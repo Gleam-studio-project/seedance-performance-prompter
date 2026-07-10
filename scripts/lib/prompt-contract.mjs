@@ -3,9 +3,9 @@ const NEGATIVE_CONSTRAINT = "负向约束：不要字幕、水印和夸张表情
 const INVALID_PARAMETERS = /(8K|24fps|f\/2\.8|ISO\s*\d+|\bfast\b)/i;
 
 const signalPatterns = {
-  face: /(眉|眼|眼睑|瞳孔|嘴|唇|鼻翼|下颌|面部|喉结)/,
+  face: /(眉|眼|眼睑|瞳孔|视线|目光|嘴|唇|鼻翼|下颌|面部|喉结)/,
   breathVoice: /(呼吸|吸气|吐气|胸腔|胸口|声音|声线|音量|语速|停顿)/,
-  bodyProp: /(手|指|肩|背|身体|脚|步|姿态|重心|道具|话筒|杯|门|桌|墙)/
+  bodyProp: /(手|指|肩|背|身体|脚|步|姿态|重心|道具|话筒|杯|门|桌|墙|纸|衣|文件|钥匙|伞|病历|眼镜|笔|戒指|水龙头|手机)/
 };
 
 export function evaluateProfile(profile) {

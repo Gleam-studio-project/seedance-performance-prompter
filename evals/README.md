@@ -24,6 +24,12 @@ npm run eval
 npm run eval -- --case=overseas-hidden-owner
 ```
 
+校验器规则调整后，可重新检查已有报告而不重复调用模型：
+
+```bash
+npm run eval -- --recheck=evals/results/<report>.json
+```
+
 报告默认写入 `evals/results/`，该目录已被 Git 忽略。JSON 保存机器检查结果与模型输出；Markdown 用于按 `rubric.md` 人工评分。
 
 ## 机器门槛

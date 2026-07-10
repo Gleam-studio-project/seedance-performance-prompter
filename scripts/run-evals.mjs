@@ -28,6 +28,27 @@ if (options.dryRun) {
   process.exit(0);
 }
 
+if (options.recheckPath) {
+  const previous = JSON.parse(await readFile(options.recheckPath, "utf8"));
+  const casesById = new Map(allCases.map((item) => [item.id, item]));
+  const results = previous.results.map((result) => {
+    const item = casesById.get(result.id);
+    if (!item || !result.profile || !result.prompt) return result;
+    const profileReport = evaluateProfile(result.profile);
+    const promptReport = evaluatePrompt(result.prompt, item);
+    return { ...result, pass: profileReport.pass && promptReport.pass, profileReport, promptReport };
+  });
+  const summary = summarize(results, previous.summary?.model || "unknown");
+  const reportPaths = await writeReports(results, { ...summary, recheckedFrom: path.relative(ROOT, options.recheckPath) }, options.outputDir);
+  console.log(
+    `Eval recheck complete: hardPass=${summary.passed}/${summary.total}, hardPassRate=${percent(summary.hardPassRate)}, ` +
+    `observableCoverage=${percent(summary.observableCoverage)}, p50Ms=${summary.p50Ms}, p95Ms=${summary.p95Ms}`
+  );
+  console.log(`Reports: ${reportPaths.json}, ${reportPaths.markdown}`);
+  if (summary.passed !== summary.total) process.exitCode = 1;
+  process.exit();
+}
+
 const client = await startWorkbenchClient();
 try {
   const status = await client.requestJson("/api/status");
@@ -104,6 +125,7 @@ function parseOptions(args) {
     dryRun: args.includes("--dry-run"),
     caseId: getValue("--case") || "",
     limit,
+    recheckPath: getValue("--recheck") ? path.resolve(ROOT, getValue("--recheck")) : "",
     outputDir: getValue("--output-dir") || path.join(ROOT, "evals", "results")
   };
 }

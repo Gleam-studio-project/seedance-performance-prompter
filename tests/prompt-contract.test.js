@@ -56,6 +56,36 @@ test("accepts domestic dialogue and rejects missing profile fields", () => {
   assert.ok(profileReport.metrics.missingFields.includes("关系动力学"));
 });
 
+test("counts gaze plus body movement as two observable signal categories", () => {
+  const prompt = `镜头 1 (0–4秒)：
+她的视线低垂到握住门把的左手，指节缓慢松开。
+
+镜头 2 (4–12秒)：
+目光固定在杯中的水纹上，肩膀下沉，拇指擦过杯壁。
+
+一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。
+
+负向约束：不要字幕、水印和夸张表情；不要生硬切镜；避免抖动和剧烈动作。`;
+  const report = evaluatePrompt(prompt, { market: "overseas", duration: 12, expectsDialogue: false });
+  assert.equal(report.pass, true);
+  assert.equal(report.metrics.observableCoverage, 1);
+});
+
+test("counts clothing and paper as observable prop interaction", () => {
+  const prompt = `镜头 1 (0–4秒)：
+目光从叠好的衣物移向柜门，掌心压平衬衫的折痕。
+
+镜头 2 (4–12秒)：
+视线扫过纸条上的字迹，下眼睑收紧；纸张边缘在展开时轻微抖动。
+
+一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。
+
+负向约束：不要字幕、水印和夸张表情；不要生硬切镜；避免抖动和剧烈动作。`;
+  const report = evaluatePrompt(prompt, { market: "domestic", duration: 12, expectsDialogue: false });
+  assert.equal(report.pass, true);
+  assert.equal(report.metrics.observableCoverage, 1);
+});
+
 test("eval dataset satisfies the fixed P1 distribution", async () => {
   const cases = JSON.parse(await readFile(path.join(__dirname, "..", "evals", "cases.json"), "utf8"));
   const report = validateEvalCases(cases);
