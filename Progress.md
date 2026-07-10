@@ -18,7 +18,7 @@
 - 网页已覆盖项目名、目标市场、文件上传、剧本输入、人设草案/AI 生成与确认、全局调教、Prompt 生成、复制和下载。
 - 后端已提供 `/api/status`、`/api/extract-file`、`/api/generate-profile`、`/api/generate-prompt`、`/api/tune` 和 `/healthz`。
 - 本地无模型 Key 时，页面可使用规则兜底完成主流程。
-- 已具备 Basic Auth、Docker 和 Vercel 部署入口；提交 `d318748` 已发布到 Vercel Production，线上主页可达，未登录 API 返回 401。
+- 已具备 Basic Auth、Docker 和 Vercel 部署入口；提交 `ec9a7f0` 已发布到 Vercel Production，线上主页可达，未登录 API 返回 401。
 - P0 已完成：网页 MVP 与部署配置已形成 Git 基线，并建立零依赖 Node 接口回归测试。
 - 回归测试覆盖鉴权启用/禁用的健康检查、受保护 API、静态文件白名单、目录穿越、状态脱敏、错误响应、无模型 Key、Markdown 上传和非法扩展名。
 - 已修复 `HEAD /healthz` 在鉴权环境返回 401、非前端仓库文件可被静态读取、异步路由异常绕过顶层错误处理并终止进程三个问题。
@@ -93,5 +93,7 @@
 - 2026-07-10：生产补验发现 `vercel.json` 将客户端 API Key 覆盖硬编码为开启，覆盖了控制台安全值；已在提交 `d318748` 改为关闭并增加部署配置回归测试。
 - 2026-07-10：安全修复后 25/25 自动化测试、`npm run check`、`git diff --check` 全部通过；线上状态显示客户端 API Key/Base URL 覆盖均为 `false`，假 Key 覆盖拒绝与不回显探针 PASS。
 - 2026-07-10：提交 `d318748` 已发布为 Vercel Production，部署 `dpl_4QX2wKacmzZMKRsxohiCQWSY2vPG` 状态 READY，稳定入口保持 `https://performance-prompter-workbench.vercel.app`。
+- 2026-07-10：进一步确认 `vercel.json` 的 OpenAI 模型白名单会覆盖 Vercel Production 中的 DeepSeek 白名单；提交 `ec9a7f0` 已移除部署文件中的环境专属模型配置，统一由 Vercel Production 管理。
+- 2026-07-10：提交 `ec9a7f0` 已发布为 Vercel Production，部署 `dpl_FdA8MrK2dYs6TLa6qhHoLEYWM5iR` 状态 READY；最终状态为模型 `deepseek-chat`，白名单仅含 `deepseek-chat`、`deepseek-reasoner`，客户端 API Key/Base URL 覆盖均为 `false`。
 - 历史记录：线上 Markdown/DOCX 抽取、浏览器主流程和桌面/移动响应式检查曾通过，但本轮未重新执行带密码的浏览器验证。
 - 待验证：人工首稿采用率、人工修改比例、五维质量评分和准确 token/成本。
