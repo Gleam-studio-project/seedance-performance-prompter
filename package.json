@@ -1,0 +1,13 @@
+{
+  "name": "performance-prompter-workbench",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Team MVP for extracting scripts and generating Seedance performance prompts with an OpenAI-compatible model.",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check app.js && node --check server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

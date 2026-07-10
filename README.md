@@ -16,6 +16,104 @@
 2. 提供：整体剧本（或人物设定+前情）+ 目标场次 +（可选）人物参考图
 3. Claude 先建人物表演档案供确认，再逐场输出可直接粘贴进 Seedance 的提示词
 
+## 团队网页 MVP
+
+本仓库现在也包含一个可落地的团队网页工作台：
+
+- 拖入/选择 `pdf`、`docx`、`doc`、`txt`、`md` 剧本文件，后端抽取文本填入剧本区
+- AI 生成人物表演档案，人工确认后再生成场次 prompt
+- 选中剧本中的目标剧情，一键生成 Seedance B 格式表演 prompt
+- 全局调教区可把团队偏好转成后续生成规则
+- 无 API Key 或模型请求失败时，自动保留本地规则兜底生成
+
+### 启动
+
+```bash
+cp .env.example .env
+# 编辑 .env，填入 OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL
+npm start
+```
+
+然后打开：
+
+```text
+http://127.0.0.1:4174
+```
+
+也可以直接打开 `index.html`；如需文件上传和真实大模型，需要同时运行 `npm start`。
+
+### 模型配置
+
+默认使用 OpenAI-compatible Chat Completions API：
+
+```env
+OPENAI_API_KEY=你的 Key
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4.1
+OPENAI_MODEL_OPTIONS=gpt-4.1,gpt-4.1-mini,gpt-4o,o3,o4-mini
+ALLOW_MODEL_CONFIG=true
+ALLOW_CLIENT_API_KEY=false
+ALLOW_CLIENT_BASE_URL=false
+PORT=4174
+```
+
+如果你们使用兼容 OpenAI 协议的网关或私有模型，只需要改 `OPENAI_BASE_URL` 和 `OPENAI_MODEL`。
+
+页面里的“模型设置”由后端开关控制：
+
+- `ALLOW_MODEL_CONFIG=true`：允许在页面选择/填写模型名，模型必须在 `OPENAI_MODEL_OPTIONS` 内。
+- `ALLOW_CLIENT_API_KEY=true`：允许成员在浏览器会话里临时填写个人 Key；Key 不写入项目存档。
+- `ALLOW_CLIENT_BASE_URL=true`：允许成员覆盖 Base URL，仅建议可信内网部署开启。
+
+### 部署上线
+
+可以上线给团队使用，但生产环境至少需要配置：
+
+```env
+NODE_ENV=production
+HOST=0.0.0.0
+PORT=4174
+OPENAI_API_KEY=你的服务端 Key
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4.1
+OPENAI_MODEL_OPTIONS=gpt-4.1,gpt-4.1-mini,gpt-4o,o3,o4-mini
+ALLOW_MODEL_CONFIG=true
+ALLOW_CLIENT_API_KEY=false
+ALLOW_CLIENT_BASE_URL=false
+APP_USER=team
+APP_PASSWORD=换成强密码
+```
+
+最简单的容器部署方式：
+
+```bash
+docker build -t performance-prompter .
+docker run --env-file .env -p 4174:4174 performance-prompter
+```
+
+部署平台如果会自动注入 `PORT`，不要在平台里写死端口；保留 `HOST=0.0.0.0` 即可。公网环境建议始终设置 `APP_PASSWORD`，否则任何拿到链接的人都能消耗模型额度。
+
+也可以直接部署到 Vercel：
+
+```bash
+vercel --prod
+```
+
+Vercel 版本会使用 `api/[...path].js` 作为 Serverless API 入口，并用后端 Basic Auth 保护 API；前端会在未登录时显示团队访问遮罩。当前 `vercel.json` 默认允许页面配置模型名和临时个人 Key，但不允许覆盖 Base URL；如果要使用团队统一 Key，需在 Vercel 项目环境变量里设置 `OPENAI_API_KEY`。Vercel 可稳定支持 `docx/txt/md`，`pdf` 依赖内置轻量解析器，扫描件仍需 OCR。
+
+健康检查地址：
+
+```text
+/healthz
+```
+
+### 文件解析边界
+
+- `docx`：优先通过系统 `unzip` 读取 `word/document.xml`；没有 `unzip` 时使用内置 ZIP 解析器
+- `doc`：macOS 下通过 `textutil` 转文本；Linux 容器下通过 `antiword`
+- `pdf`：优先使用 `pdftotext`；没有时使用 `textutil` 或内置轻量解析器兜底
+- 扫描版 PDF 暂不做 OCR，需要先转成可复制文本的 PDF 或 TXT
+
 ## 目录
 
 ```
@@ -29,4 +127,12 @@ references/
 examples/
   example-billionaire-reveal.md       # 完整示例：身份揭露（12 秒）
   example-restrained-breakdown.md     # 完整示例：无对白隐忍崩溃独角戏（12 秒）
+index.html                            # 团队网页入口
+app.js                                # 前端交互、AI 优先/本地兜底生成
+server.js                             # 文件抽取与大模型代理后端
+.env.example                          # 环境变量模板
+Dockerfile                            # 容器部署入口
+vercel.json                           # Vercel Serverless 部署配置
+api/[...path].js                      # Vercel API 入口
+middleware.js                         # Vercel 入口访问保护
 ```

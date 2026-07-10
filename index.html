@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AIGC 表演 Prompt 工作台</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <span class="brand-mark">PP</span>
+          <div>
+            <h1>AIGC 表演 Prompt 工作台</h1>
+            <p>剧本、人设确认、选段生成 Seedance 表演提示词</p>
+          </div>
+        </div>
+        <div class="project-strip" aria-label="项目控制">
+          <label class="field compact-field">
+            <span>项目名</span>
+            <input id="projectName" type="text" value="未命名项目" autocomplete="off">
+          </label>
+          <label class="field compact-field">
+            <span>目标市场</span>
+            <select id="marketSelect">
+              <option value="overseas">欧美市场 / 英文对白</option>
+              <option value="domestic">国内题材 / 中文对白</option>
+            </select>
+          </label>
+          <div class="model-status">
+            <span>模型</span>
+            <strong id="aiStatus">检测中</strong>
+          </div>
+          <button id="newProjectBtn" class="ghost-button" type="button">新建</button>
+          <button id="saveProjectBtn" class="primary-button" type="button">保存</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="left-panel" aria-label="剧本输入区">
+          <div class="panel-head">
+            <div>
+              <h2>剧本</h2>
+              <p>粘贴完整剧本，选中一段剧情后生成右侧标准 prompt。</p>
+            </div>
+            <div class="selection-meter">
+              <span id="selectionCount">未选择剧情</span>
+            </div>
+          </div>
+          <div id="fileDropZone" class="file-drop-zone" tabindex="0" role="button" aria-label="拖入或选择剧本文件">
+            <input id="scriptFileInput" type="file" accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown">
+            <div>
+              <strong>拖入 PDF / DOCX / DOC</strong>
+              <span id="fileStatus">也可以点击选择文件，抽取后的文本会填入剧本区。</span>
+            </div>
+          </div>
+          <textarea id="scriptInput" spellcheck="false" placeholder="粘贴整体剧本、人物设定和目标场次。选中任意剧情片段后，点击右侧“生成 Prompt”。"></textarea>
+          <div class="script-tools">
+            <button id="sampleBtn" class="ghost-button" type="button">载入示例</button>
+            <button id="extractProfileBtn" class="ghost-button" type="button">从剧本提取人设草案</button>
+          </div>
+        </section>
+
+        <section class="center-panel" aria-label="人设确认与全局调教">
+          <div class="stacked-region">
+            <div class="panel-head tight">
+              <div>
+                <h2>人设确认</h2>
+                <p>生成前先确认人物表演档案，避免提示词漂移。</p>
+              </div>
+              <span id="profileState" class="state-pill">待确认</span>
+            </div>
+            <textarea id="profileInput" class="profile-editor" spellcheck="false" placeholder="这里会出现人物表演档案草案。你也可以手动补充：人物ID、性格底色、关系动力学、专属Tell、微表情库。"></textarea>
+            <div class="profile-actions">
+              <button id="aiProfileBtn" class="ghost-button" type="button">AI 生成人设</button>
+              <button id="confirmProfileBtn" class="primary-button" type="button">确认人设</button>
+              <button id="resetProfileBtn" class="ghost-button" type="button">重置确认</button>
+            </div>
+          </div>
+
+          <div class="stacked-region tuning-region">
+            <div class="panel-head tight">
+              <div>
+                <h2>全局调教</h2>
+                <p>像和 AI 对话一样调整整体 skill 的偏好。</p>
+              </div>
+            </div>
+            <div class="model-config" aria-label="模型设置">
+              <label class="field">
+                <span>模型</span>
+                <input id="modelInput" list="modelOptions" type="text" autocomplete="off" placeholder="gpt-4.1">
+                <datalist id="modelOptions"></datalist>
+              </label>
+              <label class="field">
+                <span>Base URL</span>
+                <input id="baseUrlInput" type="url" autocomplete="off" placeholder="https://api.openai.com/v1">
+              </label>
+              <label class="field">
+                <span>API Key</span>
+                <input id="apiKeyInput" type="password" autocomplete="off" placeholder="使用服务端 Key">
+              </label>
+              <button id="saveModelBtn" class="ghost-button" type="button">保存模型</button>
+            </div>
+            <div id="tuningLog" class="tuning-log" aria-live="polite"></div>
+            <form id="tuningForm" class="tuning-form">
+              <input id="tuningInput" type="text" autocomplete="off" placeholder="例如：更克制，少写运镜，多写呼吸和手部动作">
+              <button class="primary-button" type="submit">发送</button>
+            </form>
+          </div>
+        </section>
+
+        <aside class="right-panel" aria-label="Seedance Prompt 输出区">
+          <div class="panel-head">
+            <div>
+              <h2>标准 Prompt</h2>
+              <p>右侧输出遵循现有 performance-prompter 的 B 格式。</p>
+            </div>
+            <span id="promptQuality" class="state-pill">未生成</span>
+          </div>
+
+          <div class="prompt-controls">
+            <label class="field">
+              <span>场景类型</span>
+              <select id="sceneTypeSelect">
+                <option value="auto">自动判断</option>
+                <option value="reveal">身份揭露</option>
+                <option value="argument">争吵爆发</option>
+                <option value="confession">克制告白</option>
+                <option value="breakdown">隐忍崩溃</option>
+                <option value="reunion">重逢</option>
+                <option value="farewell">诀别</option>
+                <option value="close">危险靠近</option>
+                <option value="guard">病床守护</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>时长</span>
+              <select id="durationSelect">
+                <option value="12">12 秒</option>
+                <option value="9">9 秒</option>
+                <option value="15">15 秒</option>
+              </select>
+            </label>
+          </div>
+
+          <button id="generateBtn" class="generate-button" type="button">AI 生成 Prompt</button>
+          <button id="localGenerateBtn" class="fallback-button" type="button">本地规则兜底生成</button>
+          <textarea id="promptOutput" class="prompt-output" spellcheck="false" placeholder="选中左侧剧本片段并确认人设后，生成结果会出现在这里。"></textarea>
+
+          <div class="output-actions">
+            <button id="copyPromptBtn" class="primary-button" type="button">复制</button>
+            <button id="downloadPromptBtn" class="ghost-button" type="button">下载 .txt</button>
+          </div>
+
+          <div class="diagnostics">
+            <h3>格式自检</h3>
+            <ul id="checkList"></ul>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <div id="authOverlay" class="auth-overlay" hidden>
+      <form id="authForm" class="auth-box">
+        <h2>团队访问</h2>
+        <label class="field">
+          <span>用户名</span>
+          <input id="authUser" type="text" autocomplete="username" value="team">
+        </label>
+        <label class="field">
+          <span>密码</span>
+          <input id="authPassword" type="password" autocomplete="current-password">
+        </label>
+        <button class="primary-button" type="submit">进入</button>
+        <p id="authError" class="auth-error" aria-live="polite"></p>
+      </form>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
