@@ -33,6 +33,7 @@ const mimeTypes = {
   ".md": "text/markdown; charset=utf-8",
   ".txt": "text/plain; charset=utf-8"
 };
+const publicAssets = new Set(["/index.html", "/app.js", "/styles.css"]);
 
 const skillGuide = buildSkillGuide();
 
@@ -44,7 +45,7 @@ const requestListener = async (req, res) => {
       return sendCors(res, 204);
     }
 
-    if (req.method === "GET" && (pathname === "/healthz" || pathname === "/api/healthz")) {
+    if ((req.method === "GET" || req.method === "HEAD") && (pathname === "/healthz" || pathname === "/api/healthz")) {
       return sendJson(res, 200, { ok: true });
     }
 
@@ -72,27 +73,27 @@ const requestListener = async (req, res) => {
     }
 
     if (req.method === "POST" && pathname === "/api/extract-file") {
-      return handleExtractFile(req, res);
+      return await handleExtractFile(req, res);
     }
 
     if (req.method === "POST" && pathname === "/api/generate-profile") {
-      return handleGenerateProfile(req, res);
+      return await handleGenerateProfile(req, res);
     }
 
     if (req.method === "POST" && pathname === "/api/generate-prompt") {
-      return handleGeneratePrompt(req, res);
+      return await handleGeneratePrompt(req, res);
     }
 
     if (req.method === "POST" && pathname === "/api/tune") {
-      return handleTune(req, res);
+      return await handleTune(req, res);
     }
 
     if ((req.method === "GET" || req.method === "HEAD") && pathname.startsWith("/api/static")) {
-      return serveStatic(req, res, pathname.slice("/api/static".length) || "/");
+      return await serveStatic(req, res, pathname.slice("/api/static".length) || "/");
     }
 
     if (req.method === "GET" || req.method === "HEAD") {
-      return serveStatic(req, res);
+      return await serveStatic(req, res);
     }
 
     sendJson(res, 405, { error: "Method not allowed" });
@@ -266,10 +267,13 @@ async function serveStatic(req, res, forcedPathname = "") {
   const url = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`);
   let pathname = forcedPathname || decodeURIComponent(url.pathname);
   if (pathname === "/") pathname = "/index.html";
-  const filePath = path.normalize(path.join(ROOT, pathname));
-  if (!filePath.startsWith(ROOT)) {
+  const filePath = path.resolve(ROOT, `.${pathname}`);
+  const relativePath = path.relative(ROOT, filePath);
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
     return sendText(res, 403, "Forbidden");
   }
+  const publicPath = `/${relativePath.split(path.sep).join("/")}`;
+  if (!publicAssets.has(publicPath)) return sendText(res, 404, "Not found");
   try {
     const stat = await fsp.stat(filePath);
     if (!stat.isFile()) return sendText(res, 404, "Not found");
