@@ -1,0 +1,134 @@
+[
+  {
+    "id": "overseas-hidden-owner",
+    "title": "隐藏业主身份揭露",
+    "market": "overseas",
+    "sceneType": "reveal",
+    "duration": 12,
+    "expectsDialogue": true,
+    "expectsSplit": false,
+    "script": "人物：Elena，29岁，酒店活动经理，长期被前夫贬低，受伤时会用礼貌微笑遮掩。Adrian，36岁，酒店真正的控股人，控制型，保护 Elena 时仍保持低声和静止。Marcus，前夫，虚荣且喜欢公开羞辱。场景：Marcus 在订婚宴上嘲笑 Elena 穿借来的礼服。Adrian 从宾客后方走出，拿过话筒，在全场安静后揭露酒店属于他。",
+    "selectedText": "Marcus: \"Even the dress is borrowed. That's very on-brand for you.\" Elena keeps smiling but grips her right wrist. Adrian steps out of the crowd, takes the microphone, waits until Marcus looks at him, then says: \"I own this hotel. You have ten minutes to leave.\""
+  },
+  {
+    "id": "overseas-silent-kitchen-breakdown",
+    "title": "厨房无声崩溃",
+    "market": "overseas",
+    "sceneType": "breakdown",
+    "duration": 12,
+    "expectsDialogue": false,
+    "expectsSplit": false,
+    "script": "人物：Nora，32岁，急诊医生，回避型，习惯先照顾所有人再处理自己的情绪；想哭时会反复把水龙头开大。场景：她刚收到母亲去世的消息，却先完成了一整台手术。深夜回家后，她独自在厨房洗一只已经干净的杯子。",
+    "selectedText": "Nora locks the apartment door, walks to the kitchen, and washes an already clean glass. Her phone screen still shows the missed call from the hospital. She turns the tap louder when her breathing starts to break. No dialogue."
+  },
+  {
+    "id": "overseas-custody-argument",
+    "title": "抚养权争吵",
+    "market": "overseas",
+    "sceneType": "argument",
+    "duration": 9,
+    "expectsDialogue": true,
+    "expectsSplit": false,
+    "script": "人物：Maya，34岁，控制型律师，紧张时会把文件边缘对齐。Daniel，36岁，回避冲突的建筑师，被逼到极限时声音反而变低。两人正在离婚，并争夺女儿的共同抚养权。",
+    "selectedText": "Maya aligns the custody papers and says: \"You missed three school pickups.\" Daniel stops reaching for the pen. He replies: \"I was at the hospital with my father, and you knew it.\" Maya wants to accuse him again but sees his hand shaking."
+  },
+  {
+    "id": "overseas-restrained-confession",
+    "title": "克制告白",
+    "market": "overseas",
+    "sceneType": "confession",
+    "duration": 15,
+    "expectsDialogue": true,
+    "expectsSplit": false,
+    "script": "人物：Theo，31岁，计算型摄影师，用整理镜头盖来拖延真话。June，30岁，感性型编辑，察觉谎言时会看对方的手而不是脸。他们是十年好友，June 明天将搬去另一座城市。",
+    "selectedText": "At the empty train platform, Theo turns the lens cap in his fingers and says: \"I kept telling myself I was being a good friend.\" June watches his hands. He finally meets her eyes: \"I was just afraid you'd say no.\""
+  },
+  {
+    "id": "overseas-hospital-reunion",
+    "title": "医院重逢",
+    "market": "overseas",
+    "sceneType": "reunion",
+    "duration": 12,
+    "expectsDialogue": true,
+    "expectsSplit": false,
+    "script": "人物：Leah，28岁，护士，回避型，震惊时会先检查手里的物品。Owen，30岁，消防员，五年前因父亲犯罪牵连家庭而不告而别，内疚时不敢站得离她太近。Leah 一直认为自己被轻易放弃，对 Owen 同时存在愤怒和未消失的依赖。两人在医院急诊走廊意外重逢。",
+    "selectedText": "Leah looks up from a patient chart and freezes when Owen steps out of the treatment room. He keeps two meters between them and says: \"Hi, Leah.\" She checks the name on the chart although she already knows it, then answers: \"You don't get to say it like no time passed.\""
+  },
+  {
+    "id": "overseas-sister-betrayal",
+    "title": "姐妹背叛揭穿",
+    "market": "overseas",
+    "sceneType": "argument",
+    "duration": 15,
+    "expectsDialogue": true,
+    "expectsSplit": false,
+    "script": "人物：Camille，33岁，权威型公司创始人，愤怒时会摘下戒指放在桌上。Sophie，27岁，感性型妹妹，说谎时会提前吸气。Camille 发现 Sophie 把公司机密卖给竞争对手。",
+    "selectedText": "Camille places the printed email between them and removes her ring. Sophie inhales before speaking: \"I was trying to save us.\" Camille slides the paper back without raising her voice: \"You sold the only thing I trusted you with.\""
+  },
+  {
+    "id": "overseas-boardroom-standoff",
+    "title": "董事会权力对峙",
+    "market": "overseas",
+    "sceneType": "reveal",
+    "duration": 9,
+    "expectsDialogue": true,
+    "expectsSplit": false,
+    "script": "人物：Victor，48岁，权威型董事长，施压时用钢笔敲一次桌面。Amara，38岁，计算型财务官，受到威胁时会把呼吸放慢。她掌握 Victor 挪用资金的证据。",
+    "selectedText": "Victor taps his pen once and says: \"You can resign quietly.\" Amara closes the folder, slows her breathing, and pushes a second copy toward the board members. \"The auditors already have this.\""
+  },
+  {
+    "id": "overseas-airport-farewell-long",
+    "title": "机场诀别长场次",
+    "market": "overseas",
+    "sceneType": "farewell",
+    "duration": 15,
+    "expectsDialogue": true,
+    "expectsSplit": true,
+    "script": "人物：Iris，30岁，回避型舞者，想留下时反而会后退。Noah，32岁，感性型音乐人，害怕失去时语速会变快。他们因长期异地决定分手，却在登机口做最后告别。场次包含争辩、沉默、归还钥匙和最后拥抱，必须拆成多条短视频。",
+    "selectedText": "Noah catches up at the gate: \"Tell me this is what you actually want.\" Iris steps back and returns his apartment key. \"Wanting you was never the problem.\" He asks her to stay for one more week. She says the next week would become another year. Boarding is called. Noah stops speaking and opens his hand for the key, but Iris closes his fingers around it. They nearly hug, stop, then finally hold each other before she walks toward the gate without turning back."
+  },
+  {
+    "id": "domestic-father-daughter-reconcile",
+    "title": "父女和解",
+    "market": "domestic",
+    "sceneType": "reunion",
+    "duration": 12,
+    "expectsDialogue": true,
+    "expectsSplit": false,
+    "script": "人物：林晚，27岁，回避型设计师，委屈时会反复捏衣角。林建国，58岁，权威型父亲，道歉时总先整理桌面。父女因林晚放弃公务员工作三年没有说话。母亲住院后，两人在病房外重逢。",
+    "selectedText": "林建国把保温杯挪正，没有看女儿：‘你妈睡着了。’林晚捏住衣角：‘我看一眼就走。’他沉默后把病房门推开一点，说：‘别走了，家里还有你的房间。’"
+  },
+  {
+    "id": "domestic-rainy-breakup",
+    "title": "雨夜分手",
+    "market": "domestic",
+    "sceneType": "farewell",
+    "duration": 9,
+    "expectsDialogue": true,
+    "expectsSplit": false,
+    "script": "人物：周宁，26岁，感性型记者，决定离开时会把声音压得异常平稳。沈川，29岁，控制型医生，慌乱时会检查手表。两人交往四年，长期因夜班和突发采访错过彼此；周宁真正需要的是被坚定选择，沈川却习惯用解决工作问题代替回应感情。周宁在雨夜提出分手。",
+    "selectedText": "周宁把伞递给沈川：‘以后别再等我下班了。’沈川下意识看手表：‘我可以换班。’她摇头，声音很轻：‘你每次都说可以，但我们已经没有下一次了。’"
+  },
+  {
+    "id": "domestic-silent-mourning",
+    "title": "整理遗物时的隐忍悲伤",
+    "market": "domestic",
+    "sceneType": "breakdown",
+    "duration": 12,
+    "expectsDialogue": false,
+    "expectsSplit": false,
+    "script": "人物：陈默，41岁，控制型刑警，从不在人前流泪；情绪失控前会把袖口扣好。他习惯用整理物品恢复秩序，妻子生病期间仍假装一切可以被计划。妻子去世一周后，亲友已经离开，他第一次独自整理她的衣柜，并发现两人原本周末要购买的生活用品清单。",
+    "selectedText": "陈默把每件衣服按颜色叠好，发现口袋里有一张未用完的购物清单。他先扣紧袖口，再试图把纸折回原样。纸角被手指抖皱，他停住呼吸，把清单贴在掌心。全场无对白。"
+  },
+  {
+    "id": "domestic-boardroom-long",
+    "title": "家族董事会长场次",
+    "market": "domestic",
+    "sceneType": "reveal",
+    "duration": 15,
+    "expectsDialogue": true,
+    "expectsSplit": true,
+    "script": "人物：顾清，35岁，计算型继承人，受压时会把文件夹转正。顾成山，62岁，权威型董事长，用摘眼镜表示最后警告。顾清发现父亲隐瞒重大债务，在董事会上要求公开账目。场次包含三轮证据和关系决裂，必须拆成多条。",
+    "selectedText": "顾成山摘下眼镜：‘现在撤回提案，我还能当你没来过。’顾清把第一份债务清单转向董事：‘这不是提案，是通知。’父亲指责她毁掉家族信誉。她拿出银行流水，说明债务早已转移到员工持股平台。叔叔试图打断，她播放录音。顾成山要求所有人离开，顾清留下最后一份辞职信：‘从今天起，我不再替你守这个秘密。’她转身走到门口，又停下告诉董事会，监管部门已经收到全部材料。"
+  }
+]

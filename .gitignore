@@ -4,3 +4,4 @@ node_modules/
 tmp/
 uploads/
 .vercel
+evals/results/
