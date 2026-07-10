@@ -24,6 +24,7 @@ const ALLOW_CLIENT_API_KEY = envFlag("ALLOW_CLIENT_API_KEY");
 const APP_USER = process.env.APP_USER || process.env.BASIC_AUTH_USER || "team";
 const APP_PASSWORD = process.env.APP_PASSWORD || process.env.BASIC_AUTH_PASSWORD || "";
 const AUTH_ENABLED = Boolean(APP_PASSWORD);
+const CORS_ORIGIN = process.env.CORS_ORIGIN || (process.env.NODE_ENV === "production" ? "null" : "*");
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -34,6 +35,24 @@ const mimeTypes = {
   ".txt": "text/plain; charset=utf-8"
 };
 const publicAssets = new Set(["/index.html", "/app.js", "/styles.css"]);
+const commonSecurityHeaders = {
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+  "referrer-policy": "no-referrer",
+  "permissions-policy": "camera=(), microphone=(), geolocation=()"
+};
+const staticSecurityHeaders = {
+  ...commonSecurityHeaders,
+  "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+};
+const apiSecurityHeaders = {
+  ...commonSecurityHeaders,
+  "cache-control": "no-store",
+  "access-control-allow-origin": CORS_ORIGIN,
+  "access-control-allow-methods": "GET,HEAD,POST,OPTIONS",
+  "access-control-allow-headers": "content-type,authorization",
+  "vary": "Origin"
+};
 
 const skillGuide = buildSkillGuide();
 
@@ -282,7 +301,7 @@ async function serveStatic(req, res, forcedPathname = "") {
     const stat = await fsp.stat(filePath);
     if (!stat.isFile()) return sendText(res, 404, "Not found");
     const contentType = mimeTypes[path.extname(filePath).toLowerCase()] || "application/octet-stream";
-    res.writeHead(200, { "content-type": contentType });
+    res.writeHead(200, { ...staticSecurityHeaders, "content-type": contentType });
     if (req.method === "HEAD") return res.end();
     fs.createReadStream(filePath).pipe(res);
   } catch {
@@ -767,39 +786,31 @@ function safeEqual(left, right) {
 
 function requestAuth(res) {
   res.writeHead(401, {
+    ...apiSecurityHeaders,
     "content-type": "text/plain; charset=utf-8",
-    "www-authenticate": "Basic realm=\"Performance Prompter\"",
-    "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type,authorization"
+    "www-authenticate": "Basic realm=\"Performance Prompter\""
   });
   res.end("Authentication required");
 }
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
-    "content-type": "application/json; charset=utf-8",
-    "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type,authorization"
+    ...apiSecurityHeaders,
+    "content-type": "application/json; charset=utf-8"
   });
   res.end(JSON.stringify(payload));
 }
 
 function sendText(res, status, text) {
   res.writeHead(status, {
-    "content-type": "text/plain; charset=utf-8",
-    "access-control-allow-origin": "*"
+    ...apiSecurityHeaders,
+    "content-type": "text/plain; charset=utf-8"
   });
   res.end(text);
 }
 
 function sendCors(res, status) {
-  res.writeHead(status, {
-    "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type,authorization"
-  });
+  res.writeHead(status, apiSecurityHeaders);
   res.end();
 }
 

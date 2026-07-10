@@ -2,8 +2,20 @@ export const config = {
   matcher: ["/:path*"]
 };
 
-export function middleware(request) {
-  if (new URL(request.url).pathname === "/healthz") return;
+const securityHeaders = {
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+  "referrer-policy": "no-referrer",
+  "permissions-policy": "camera=(), microphone=(), geolocation=()"
+};
+const publicPaths = new Set(["/", "/index.html", "/app.js", "/styles.css"]);
+
+export default function middleware(request) {
+  const pathname = new URL(request.url).pathname;
+  if (pathname === "/healthz" || publicPaths.has(pathname)) return;
+  if (!pathname.startsWith("/api/")) {
+    return new Response("Not found", { status: 404, headers: securityHeaders });
+  }
 
   const password = process.env.APP_PASSWORD || process.env.BASIC_AUTH_PASSWORD || "";
   if (!password) return;
@@ -15,6 +27,7 @@ export function middleware(request) {
   return new Response("Authentication required", {
     status: 401,
     headers: {
+      ...securityHeaders,
       "www-authenticate": "Basic realm=\"Performance Prompter\""
     }
   });

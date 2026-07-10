@@ -5,7 +5,7 @@
   "description": "Team MVP for extracting scripts and generating Seedance performance prompts with an OpenAI-compatible model.",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check app.js && node --check server.js && node --check scripts/smoke-ai.mjs && node --check scripts/run-evals.mjs && node --check scripts/lib/eval-cases.mjs && node --check scripts/lib/prompt-contract.mjs && node --check scripts/lib/workbench-client.mjs && node --check tests/server.test.js && node --check tests/auth-health.test.js && node --check tests/prompt-contract.test.js",
+    "check": "node --check app.js && node --check server.js && node --check scripts/smoke-ai.mjs && node --check scripts/run-evals.mjs && node --check scripts/lib/eval-cases.mjs && node --check scripts/lib/prompt-contract.mjs && node --check scripts/lib/workbench-client.mjs && node --check tests/server.test.js && node --check tests/auth.test.js && node --check tests/prompt-contract.test.js",
     "eval": "node scripts/run-evals.mjs",
     "eval:check": "node scripts/run-evals.mjs --dry-run",
     "smoke:ai": "node scripts/smoke-ai.mjs",

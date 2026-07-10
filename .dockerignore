@@ -1,6 +1,8 @@
 .env
 .git
+.vercel
 .DS_Store
 node_modules
+evals/results
 npm-debug.log*
 *.log

@@ -126,6 +126,22 @@ test("extracts and normalizes Markdown uploads", async () => {
   assert.deepEqual(payload.warnings, []);
 });
 
+test("extracts text from a valid DOCX upload", async () => {
+  const form = new FormData();
+  form.append("file", new Blob([createDocxFixture()], {
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  }), "scene.docx");
+
+  const response = await fetch(`${baseUrl}/api/extract-file`, { method: "POST", body: form });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.filename, "scene.docx");
+  assert.match(payload.method, /^docx-(unzip|built-in)$/);
+  assert.equal(payload.text, "第一场\n角色：你好");
+  assert.equal(payload.chars, payload.text.length);
+});
+
 test("rejects unsupported upload extensions", async () => {
   const form = new FormData();
   form.append("file", new Blob(["binary"], { type: "application/octet-stream" }), "scene.exe");
@@ -153,4 +169,55 @@ function rawRequest(pathname) {
     request.on("error", reject);
     request.end();
   });
+}
+
+function createDocxFixture() {
+  const filename = Buffer.from("word/document.xml");
+  const xml = Buffer.from(
+    '<?xml version="1.0" encoding="UTF-8"?>' +
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+    '<w:p><w:r><w:t>第一场</w:t></w:r></w:p>' +
+    '<w:p><w:r><w:t>角色：你好</w:t></w:r></w:p>' +
+    '</w:body></w:document>'
+  );
+  const checksum = crc32(xml);
+
+  const local = Buffer.alloc(30);
+  local.writeUInt32LE(0x04034b50, 0);
+  local.writeUInt16LE(20, 4);
+  local.writeUInt32LE(checksum, 14);
+  local.writeUInt32LE(xml.length, 18);
+  local.writeUInt32LE(xml.length, 22);
+  local.writeUInt16LE(filename.length, 26);
+
+  const central = Buffer.alloc(46);
+  central.writeUInt32LE(0x02014b50, 0);
+  central.writeUInt16LE(20, 4);
+  central.writeUInt16LE(20, 6);
+  central.writeUInt32LE(checksum, 16);
+  central.writeUInt32LE(xml.length, 20);
+  central.writeUInt32LE(xml.length, 24);
+  central.writeUInt16LE(filename.length, 28);
+
+  const centralOffset = local.length + filename.length + xml.length;
+  const centralSize = central.length + filename.length;
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(1, 8);
+  end.writeUInt16LE(1, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(centralOffset, 16);
+
+  return Buffer.concat([local, filename, xml, central, filename, end]);
+}
+
+function crc32(buffer) {
+  let value = 0xffffffff;
+  for (const byte of buffer) {
+    value ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      value = (value >>> 1) ^ (value & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (value ^ 0xffffffff) >>> 0;
 }
