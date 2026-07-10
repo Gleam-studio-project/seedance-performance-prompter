@@ -28,7 +28,7 @@
   "env": {
     "NODE_ENV": "production",
     "ALLOW_MODEL_CONFIG": "true",
-    "ALLOW_CLIENT_API_KEY": "true",
+    "ALLOW_CLIENT_API_KEY": "false",
     "ALLOW_CLIENT_BASE_URL": "false",
     "OPENAI_MODEL_OPTIONS": "gpt-4.1,gpt-4.1-mini,gpt-4o,o3,o4-mini"
   }

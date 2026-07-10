@@ -1,6 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { readFileSync } = require("node:fs");
 const http = require("node:http");
+const path = require("node:path");
 
 const APP_USER = "team";
 const APP_PASSWORD = "security-test-password";
@@ -23,6 +25,12 @@ process.env.BASIC_AUTH_PASSWORD = "";
 process.env.CORS_ORIGIN = CORS_ORIGIN;
 
 const requestListener = require("../server");
+
+test("Vercel production defaults disable client credential overrides", () => {
+  const config = JSON.parse(readFileSync(path.join(__dirname, "..", "vercel.json"), "utf8"));
+  assert.equal(config.env.ALLOW_CLIENT_API_KEY, "false");
+  assert.equal(config.env.ALLOW_CLIENT_BASE_URL, "false");
+});
 
 let server;
 let baseUrl;
