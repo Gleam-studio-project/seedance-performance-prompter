@@ -18,7 +18,7 @@
 - 网页已覆盖项目名、目标市场、文件上传、剧本输入、人设草案/AI 生成与确认、全局调教、Prompt 生成、复制和下载。
 - 后端已提供 `/api/status`、`/api/extract-file`、`/api/generate-profile`、`/api/generate-prompt`、`/api/tune` 和 `/healthz`。
 - 本地无模型 Key 时，页面可使用规则兜底完成主流程。
-- 已具备 Basic Auth、Docker 和 Vercel 部署入口；线上主页当前可达，未登录 API 当前会返回 401。
+- 已具备 Basic Auth、Docker 和 Vercel 部署入口；提交 `f77dfbe` 已发布到 Vercel Production，线上主页可达，未登录 API 返回 401。
 - P0 已完成：网页 MVP 与部署配置已形成 Git 基线，并建立零依赖 Node 接口回归测试。
 - 回归测试覆盖鉴权启用/禁用的健康检查、受保护 API、静态文件白名单、目录穿越、状态脱敏、错误响应、无模型 Key、Markdown 上传和非法扩展名。
 - 已修复 `HEAD /healthz` 在鉴权环境返回 401、非前端仓库文件可被静态读取、异步路由异常绕过顶层错误处理并终止进程三个问题。
@@ -27,10 +27,11 @@
 - 安全与部署回归已补齐：生产 CORS 默认收紧、API 禁止缓存、静态页面增加 CSP，鉴权与模型配置开关均有自动化测试。
 - Markdown 与合成 DOCX 文件抽取均已纳入自动化回归。
 - Vercel preview 本地构建通过；Middleware 已改为当前 Vercel 支持的默认导出，并通过公开路径白名单阻止访问仓库内非前端文件。
+- Vercel Production 已配置 DeepSeek 模型参数和服务端安全开关；客户端不能覆盖 API Key 或 Base URL。
 
 ## 下一步
-1. **P1 人工验收**：由至少一名短剧制作成员按 `evals/rubric.md` 评分，并记录首稿采用率和人工修改比例。
-2. **生产发布准备**：在 Vercel production 配置团队模型 Key、`APP_PASSWORD` 和安全开关；Docker 验证需在安装 Docker 的机器执行；生产发布前取得明确授权。
+1. **生产补验**：在本地 `.env` 填入与 Vercel Production 一致的 `APP_PASSWORD`，执行一次已认证状态检查和 DeepSeek 生成请求。
+2. **P1 人工验收**：由至少一名短剧制作成员按 `evals/rubric.md` 评分，并记录首稿采用率和人工修改比例。
 3. **P2：小范围团队试用**：3-5 名真实用户完成至少 15 次任务，记录首稿采用率、人工修改量、失败原因和高频需求。
 4. **P3：扩展决策**：只有 P1/P2 达标后，再决定继续保持轻量内网工具，还是建设账号、共享、版本、用量统计等协作能力。
 
@@ -44,8 +45,8 @@
 - 当前 MVP 仅提供轻量团队密码保护，不是完整账号权限系统。
 - PDF 扫描件暂不做 OCR；Vercel 上 PDF/DOC 解析能力弱于 Docker 部署。
 - 自动识别人物、情绪和对白翻译仍需人工确认；机器硬门槛已建立，但不能替代人工内容判断。
-- 公开部署会消耗模型额度；团队统一 Key 上线前必须验证访问保护、限额和错误日志不泄露敏感信息。
-- P0 修复尚未重新部署到线上；线上 `HEAD /healthz` 会保持旧行为，直到后续获得生产部署授权。
+- 公开部署会消耗模型额度；当前已有团队密码保护，但仍需在试用期监控调用失败率与额度消耗。
+- 本地未保存 Vercel Production 的 `APP_PASSWORD`，因此本轮无法完成已认证的线上模型状态与生成补验；不能仅凭环境变量存在就断言运行时调用成功。
 - 当前机器未安装 Docker CLI，容器构建与运行验证尚未执行。
 - Vercel preview 环境当前没有 `APP_PASSWORD`，不能作为受保护的团队试用环境。
 - Vercel 构建提示 Node `>=20` 会自动跟随未来主版本；正式长期运行前需决定是否固定 Node 主版本。
@@ -83,5 +84,9 @@
 - 2026-07-10：preview 未配置 `APP_PASSWORD`，本地 Vercel API 鉴权无法作为发布证据；独立生产配置测试已覆盖无凭据/错误凭据 401、正确凭据 200。
 - 2026-07-10：`npm audit --omit=dev --audit-level=high` 通过，0 个已知漏洞。
 - 2026-07-10：`.dockerignore` 已排除 `.env`、`.vercel` 与本地评测结果，避免把敏感配置和模型输出发送到 Docker 构建上下文。
+- 2026-07-10：DeepSeek 的 `OPENAI_API_KEY`、Base URL、模型名、模型参数及三个服务端安全开关已作为加密变量写入 Vercel Production；变量清单核对通过，未输出密钥明文。
+- 2026-07-10：提交 `f77dfbe` 已成功发布为 Vercel Production，稳定入口为 `https://performance-prompter-workbench.vercel.app`，部署状态为 READY。
+- 2026-07-10：生产黑盒验证通过：首页 200，健康检查 GET/HEAD 200，未认证 `/api/status` 401，`/server.js` 与 `/.env` 均为 404；CSP、HSTS、`nosniff`、防嵌入、Referrer Policy 和健康接口 `no-store` 均生效。
+- 2026-07-10：已认证生产模型调用待补验，原因是本地 `.env` 的 `APP_PASSWORD` 为空，且 Vercel 中现有密码为不可回读的加密值。
 - 历史记录：线上 Markdown/DOCX 抽取、浏览器主流程和桌面/移动响应式检查曾通过，但本轮未重新执行带密码的浏览器验证。
 - 待验证：人工首稿采用率、人工修改比例、五维质量评分和准确 token/成本。
