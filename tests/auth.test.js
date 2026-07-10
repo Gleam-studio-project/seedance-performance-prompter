@@ -26,10 +26,16 @@ process.env.CORS_ORIGIN = CORS_ORIGIN;
 
 const requestListener = require("../server");
 
-test("Vercel production defaults disable client credential overrides", () => {
+test("Vercel deployment defers model controls to project environment", () => {
   const config = JSON.parse(readFileSync(path.join(__dirname, "..", "vercel.json"), "utf8"));
-  assert.equal(config.env.ALLOW_CLIENT_API_KEY, "false");
-  assert.equal(config.env.ALLOW_CLIENT_BASE_URL, "false");
+  for (const name of [
+    "ALLOW_MODEL_CONFIG",
+    "ALLOW_CLIENT_API_KEY",
+    "ALLOW_CLIENT_BASE_URL",
+    "OPENAI_MODEL_OPTIONS"
+  ]) {
+    assert.equal(name in config.env, false, name);
+  }
 });
 
 let server;
