@@ -78,6 +78,18 @@ ${NEGATIVE_CONSTRAINT}`;
   });
   assert.equal(validReport.checks.physicalCausality, true);
   assert.equal(validReport.pass, true);
+
+  const breathingAirflow = evaluatePrompt(silentPrompt(
+    "她双肩缓慢下沉，目光盯着杯沿，右手握住左手手腕；嘴唇张开但没有声音，只有呼气和吸气的气流声。"
+  ), { market: "domestic", duration: 12, expectsDialogue: false });
+  assert.equal(breathingAirflow.checks.physicalCausality, true);
+  assert.equal(breathingAirflow.checks.observableCoverage, true);
+
+  const practicalLight = evaluatePrompt(silentPrompt(
+    "她侧身坐在桌前，目光停在戒指上，左手食指压住纸张。台灯光线落在戒指表面，形成一道窄高光。"
+  ), { market: "domestic", duration: 12, expectsDialogue: false });
+  assert.equal(practicalLight.checks.physicalCausality, true);
+  assert.equal(practicalLight.pass, true);
 });
 
 test("skill and runtime load the structured physical direction reference", async () => {
@@ -89,6 +101,7 @@ test("skill and runtime load the structured physical direction reference", async
   ]);
   assert.match(skill, /structured-physical-direction\.md/);
   assert.match(server, /structured-physical-direction\.md/);
+  assert.match(server, /最后一个镜头的结束秒必须等于/);
   assert.match(reference, /主体.*动作.*环境.*镜头.*氛围/);
   assert.match(reference, /整体姿态.*头部.*眼神.*手部.*细节/);
 });
@@ -165,6 +178,15 @@ function validPrompt(dialogue) {
 
 镜头 2 (4–12秒)：
 嘴唇压平后松开，呼吸从胸口缓慢落下；肩膀下沉，手掌离开桌沿。
+
+一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。
+
+${NEGATIVE_CONSTRAINT}`;
+}
+
+function silentPrompt(body) {
+  return `镜头 1 (0–12秒)：
+${body}
 
 一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。
 

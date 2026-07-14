@@ -10,6 +10,28 @@ process.env.BASIC_AUTH_PASSWORD = "";
 
 const requestListener = require("../server");
 
+test("builds exact continuous shot schedules for supported durations", () => {
+  assert.deepEqual(requestListener.buildShotSchedule(4), [
+    "镜头 1 (0–2秒)：",
+    "镜头 2 (2–4秒)："
+  ]);
+  assert.deepEqual(requestListener.buildShotSchedule(9), [
+    "镜头 1 (0–3秒)：",
+    "镜头 2 (3–6秒)：",
+    "镜头 3 (6–9秒)："
+  ]);
+  assert.deepEqual(requestListener.buildShotSchedule(12), [
+    "镜头 1 (0–4秒)：",
+    "镜头 2 (4–8秒)：",
+    "镜头 3 (8–12秒)："
+  ]);
+  assert.deepEqual(requestListener.buildShotSchedule(15), [
+    "镜头 1 (0–5秒)：",
+    "镜头 2 (5–10秒)：",
+    "镜头 3 (10–15秒)："
+  ]);
+});
+
 let server;
 let baseUrl;
 let address;

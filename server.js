@@ -135,6 +135,7 @@ if (require.main === module) {
 }
 
 module.exports = requestListener;
+module.exports.buildShotSchedule = buildShotSchedule;
 
 async function handleExtractFile(req, res) {
   const contentType = req.headers["content-type"] || "";
@@ -219,6 +220,7 @@ async function handleGeneratePrompt(req, res) {
 
   const market = body.market === "domestic" ? "国内题材 / 中文对白" : "欧美市场 / 英文对白";
   const duration = Number(body.duration || 12);
+  const shotSchedule = buildShotSchedule(duration).join("、");
   const sceneType = String(body.sceneType || "auto");
   const tuning = stringifyTuning(body.tuning);
 
@@ -230,11 +232,12 @@ async function handleGeneratePrompt(req, res) {
 
 硬性要求：
 - 严格输出三部分：① 成品提示词 ② 设计说明 ③ 拆条对应。
-- 成品提示词必须使用 B 格式：镜头 N (X–Y秒)：，总时长 ${duration} 秒以内。
+- 成品提示词必须使用 B 格式：镜头 N (X–Y秒)：；时间戳从0秒开始连续，最后一个镜头的结束秒必须等于 ${duration}，绝不能超过 ${duration} 秒。
+- 必须且只允许逐字使用以下镜头时间戳，不得新增、删除、重复或改写：${shotSchedule}
 - 每个镜头 2-4 句可观测表演描述，必须包含微动作/微表情/呼吸/手部或道具交互。
 - 每个镜头必须至少覆盖以下三类中的两类：①面部/眼神 ②呼吸/声音 ③肢体/手部/道具；不能只写走位或笼统情绪。
 - 每个镜头先锚定主体，再按“整体姿态/重心 → 头部 → 眼神/表情 → 手部/道具 → 细节反馈”组织动作；环境、镜头和氛围放在主体动作之后，不得机械填槽或改写剧情因果。
-- 若出现风、雨、雾、阳光/逆光、接触或受力，必须写出方向明确、镜头可见的物理结果；不得凭空添加与剧本无关的天气或光效。
+- 若出现风、雨、雾、阳光/逆光、接触或受力，必须写出方向明确、镜头可见的物理结果；例如雨景要写雨点击中伞面、水花溅起或鞋底踏水形成涟漪，不能只写“在雨中”或“雨檐下”；不得凭空添加与剧本无关的天气或光效。
 - 每个镜头最多一个主要运镜；人物动作复杂时保持固定镜头。
 - 欧美市场时，引号内对白必须是地道英文，语气标注用中文；国内题材时对白和标注都用中文。
 - 每一句台词必须独占一行并逐字使用“对话：\"台词\" 语气[…]，音量[…]，停顿[…]，口型[…]。”格式；动作段不得直接出现未加“对话：”标签的引号台词。
@@ -833,6 +836,18 @@ function maskBaseUrl(url) {
 
 function envFlag(name) {
   return /^(1|true|yes|on)$/i.test(String(process.env[name] || ""));
+}
+
+function buildShotSchedule(duration) {
+  const total = Math.max(4, Math.min(15, Math.round(Number(duration) || 12)));
+  const shotCount = total < 6 ? 2 : 3;
+  const boundaries = Array.from({ length: shotCount + 1 }, (_, index) =>
+    index === shotCount ? total : Math.round((total * index) / shotCount)
+  );
+
+  return Array.from({ length: shotCount }, (_, index) =>
+    `镜头 ${index + 1} (${boundaries[index]}–${boundaries[index + 1]}秒)：`
+  );
 }
 
 function buildModelOptions() {

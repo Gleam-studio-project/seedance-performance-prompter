@@ -3,16 +3,16 @@ const NEGATIVE_CONSTRAINT = "负向约束：避免画面抖动、镜头剧烈晃
 const INVALID_PARAMETERS = /(8K|24fps|f\/2\.8|ISO\s*\d+|\bfast\b)/i;
 
 const signalPatterns = {
-  face: /(眉|眼|眼睑|瞳孔|视线|目光|嘴|唇|鼻翼|下颌|面部|喉结)/,
+  face: /(眉|眼|眼睑|瞳孔|视线|目光|盯|凝视|注视|看向|望向|嘴|唇|鼻翼|下颌|面部|喉结)/,
   breathVoice: /(呼吸|吸气|吐气|胸腔|胸口|声音|声线|音量|语速|停顿)/,
   bodyProp: /(手|指|肩|背|身体|脚|步|姿态|重心|道具|话筒|杯|门|桌|墙|纸|衣|文件|钥匙|伞|病历|眼镜|笔|戒指|水龙头|手机)/
 };
 
 const physicalCausalityRules = [
   { cause: /(雨|雨水|雨滴)/, effect: /(打在|击中|溅|水花|滴落|滑落|湿|水珠|涟漪|反光)/ },
-  { cause: /(风|气流)/, effect: /(吹|扬|掀|摆|摇|飘|贴|拂|卷)/ },
+  { cause: /风/, effect: /(吹|扬|掀|摆|摇|飘|贴|拂|卷)/ },
   { cause: /(雾|水汽)/, effect: /(漫散|凝结|凝在|笼罩|遮挡|显露|模糊|掌痕)/ },
-  { cause: /(阳光|逆光|灯光|光线)/, effect: /(透过|投下|照在|落在|反射|映出|光斑|轮廓|阴影|漫射|勾勒)/ }
+  { cause: /(阳光|逆光|灯光|光线)/, effect: /(透过|投下|照在|落在|反射|映出|光斑|高光|亮斑|轮廓|阴影|漫射|勾勒)/ }
 ];
 
 export function evaluateProfile(profile) {
