@@ -1,5 +1,5 @@
 const CONSISTENCY_LOCK = "一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。";
-const NEGATIVE_CONSTRAINT = "负向约束：不要字幕、水印和夸张表情；不要生硬切镜；避免抖动和剧烈动作。";
+const NEGATIVE_CONSTRAINT = "负向约束：避免画面抖动、镜头剧烈晃动、人物面部变形、肢体错乱、手指数量异常、画面闪烁、过曝、过暗、字幕、水印和低画质模糊；不要快速切换、戏剧化大动作和生硬切镜。";
 const INVALID_PARAMETERS = /(8K|24fps|f\/2\.8|ISO\s*\d+|\bfast\b)/i;
 
 const signalPatterns = {
@@ -7,6 +7,13 @@ const signalPatterns = {
   breathVoice: /(呼吸|吸气|吐气|胸腔|胸口|声音|声线|音量|语速|停顿)/,
   bodyProp: /(手|指|肩|背|身体|脚|步|姿态|重心|道具|话筒|杯|门|桌|墙|纸|衣|文件|钥匙|伞|病历|眼镜|笔|戒指|水龙头|手机)/
 };
+
+const physicalCausalityRules = [
+  { cause: /(雨|雨水|雨滴)/, effect: /(打在|击中|溅|水花|滴落|滑落|湿|水珠|涟漪|反光)/ },
+  { cause: /(风|气流)/, effect: /(吹|扬|掀|摆|摇|飘|贴|拂|卷)/ },
+  { cause: /(雾|水汽)/, effect: /(漫散|凝结|凝在|笼罩|遮挡|显露|模糊|掌痕)/ },
+  { cause: /(阳光|逆光|灯光|光线)/, effect: /(透过|投下|照在|落在|反射|映出|光斑|轮廓|阴影|漫射|勾勒)/ }
+];
 
 export function evaluateProfile(profile) {
   const value = String(profile || "");
@@ -36,6 +43,7 @@ export function evaluatePrompt(prompt, options = {}) {
   const dialogue = [...value.matchAll(/对话：[“"]([^”"]+)[”"]/g)].map((match) => match[1]);
   const observableShots = shots.filter((shot) => countSignalCategories(shot.body) >= 2).length;
   const observableCoverage = shots.length ? observableShots / shots.length : 0;
+  const physicalReport = evaluatePhysicalCausality(shots);
   const consistencyIndex = value.lastIndexOf(CONSISTENCY_LOCK);
   const negativeIndex = value.lastIndexOf(NEGATIVE_CONSTRAINT);
 
@@ -47,6 +55,7 @@ export function evaluatePrompt(prompt, options = {}) {
     dialogueLanguage: dialogueLanguageIsValid(dialogue, options.market, expectsDialogue),
     noInvalidParameters: !INVALID_PARAMETERS.test(value),
     observableCoverage: observableCoverage >= 0.9,
+    physicalCausality: physicalReport.pass,
     splitDocumented: !options.expectsSplit || /拆条对应[\s\S]*(条\s*2|条2|第二条|拆成\s*2|2\s*条)/.test(value)
   };
 
@@ -55,7 +64,10 @@ export function evaluatePrompt(prompt, options = {}) {
     shots: shots.length,
     dialogueLines: dialogue.length,
     observableShots,
-    observableCoverage
+    observableCoverage,
+    physicalCausalityShots: physicalReport.causalShots,
+    physicalCausalitySatisfied: physicalReport.satisfiedShots,
+    physicalCausalityCoverage: physicalReport.coverage
   });
 }
 
@@ -101,6 +113,21 @@ function dialogueLanguageIsValid(lines, market, expectsDialogue) {
 
 function countSignalCategories(value) {
   return Object.values(signalPatterns).filter((pattern) => pattern.test(value)).length;
+}
+
+function evaluatePhysicalCausality(shots) {
+  let causalShots = 0;
+  let satisfiedShots = 0;
+
+  for (const shot of shots) {
+    const activeRules = physicalCausalityRules.filter((rule) => rule.cause.test(shot.body));
+    if (!activeRules.length) continue;
+    causalShots += 1;
+    if (activeRules.every((rule) => rule.effect.test(shot.body))) satisfiedShots += 1;
+  }
+
+  const coverage = causalShots ? satisfiedShots / causalShots : 1;
+  return { pass: coverage === 1, causalShots, satisfiedShots, coverage };
 }
 
 function buildReport(checks, metrics) {
