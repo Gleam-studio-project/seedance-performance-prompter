@@ -29,11 +29,14 @@
 - Vercel preview 本地构建通过；Middleware 已改为当前 Vercel 支持的默认导出，并通过公开路径白名单阻止访问仓库内非前端文件。
 - Vercel Production 已配置 DeepSeek 模型参数和服务端安全开关；客户端不能覆盖 API Key 或 Base URL。
 - 生产已认证端到端补验通过：`deepseek-chat` 成功生成人物档案和 Seedance Prompt，两个输出均通过现有机器契约。
+- 本地 `main` 已吸收结构化动作与物理因果规则：主体优先、动作从整体到局部、显式环境原因-结果、扩展负向约束和后端固定镜头时间表；线上 Production 尚未发布该批改动。
+- 新规则的 12 场景机器评测均取得 PASS 输出，其中 1 条因 TLS 中断后原样重试；可观测覆盖与物理因果检查均为 100%。
 
 ## 下一步
-1. **P1 人工验收**：由至少一名短剧制作成员按 `evals/rubric.md` 评分，并记录首稿采用率和人工修改比例。
-2. **P2：小范围团队试用**：3-5 名真实用户完成至少 15 次任务，记录首稿采用率、人工修改量、失败原因和高频需求。
-3. **P3：扩展决策**：只有 P1/P2 达标后，再决定继续保持轻量内网工具，还是建设账号、共享、版本、用量统计等协作能力。
+1. **生产发布授权**：获得明确授权后，把结构化动作与物理因果版本发布到 Vercel Production，并补做已认证线上冒烟。
+2. **P1 人工验收**：由至少一名短剧制作成员按 `evals/rubric.md` 评分，并记录首稿采用率和人工修改比例。
+3. **P2：小范围团队试用**：3-5 名真实用户完成至少 15 次任务，记录首稿采用率、人工修改量、失败原因和高频需求。
+4. **P3：扩展决策**：只有 P1/P2 达标后，再决定继续保持轻量内网工具，还是建设账号、共享、版本、用量统计等协作能力。
 
 详细执行计划见 `docs/plans/2026-07-10-team-mvp-validation-roadmap.md`。
 
@@ -49,6 +52,8 @@
 - 当前机器未安装 Docker CLI，容器构建与运行验证尚未执行。
 - Vercel preview 环境当前没有 `APP_PASSWORD`，不能作为受保护的团队试用环境。
 - Vercel 构建提示 Node `>=20` 会自动跟随未来主版本；正式长期运行前需决定是否固定 Node 主版本。
+- 物理因果契约只覆盖明确出现的风、雨、雾和光线词，无法替代真实成片检查；截图中的效果百分比未经本项目验证。
+- 本地新规则尚未部署到 Vercel Production；线上仍运行上一稳定版本，发布需要明确授权。
 
 ## 关键决策
 - 先验证“能否稳定减少 Prompt 制作时间并提高表演质量”，暂缓账号、数据库和多人协作扩展。
@@ -95,5 +100,11 @@
 - 2026-07-10：提交 `d318748` 已发布为 Vercel Production，部署 `dpl_4QX2wKacmzZMKRsxohiCQWSY2vPG` 状态 READY，稳定入口保持 `https://performance-prompter-workbench.vercel.app`。
 - 2026-07-10：进一步确认 `vercel.json` 的 OpenAI 模型白名单会覆盖 Vercel Production 中的 DeepSeek 白名单；提交 `ec9a7f0` 已移除部署文件中的环境专属模型配置，统一由 Vercel Production 管理。
 - 2026-07-10：提交 `ec9a7f0` 已发布为 Vercel Production，部署 `dpl_FdA8MrK2dYs6TLa6qhHoLEYWM5iR` 状态 READY；最终状态为模型 `deepseek-chat`，白名单仅含 `deepseek-chat`、`deepseek-reasoner`，客户端 API Key/Base URL 覆盖均为 `false`。
+- 2026-07-14：新增 `references/structured-physical-direction.md`，将截图技巧收敛为主体优先、动作分层、环境物理因果和扩展负向约束；明确不采信未经验证的效果百分比。
+- 2026-07-14：Skill、服务端生成指令、前端本地兜底、格式参考和两个示例已同步；旧负向模板仅保留为拒绝测试。
+- 2026-07-14：契约新增显式环境物理因果检查，评测反馈后排除呼吸气流误报，并补充高光与“盯/凝视/注视/看向/望向”等有效信号。
+- 2026-07-14：后端增加确定性镜头时间表，4 秒为 2 镜头，9/12/15 秒为 3 镜头；模型不得新增、重复或改写时间戳。
+- 2026-07-14：`npm test` 29/29、`npm run check`、Skill `quick_validate.py` 与 `git diff --check` 全部通过；真实 DeepSeek 冒烟 1/1 通过。
+- 2026-07-14：最终 12 场景均取得 PASS 输出，其中 1 条上游 TLS 中断后原样重试；可观测覆盖 100%，3 个显式物理因果镜头全部通过，P50 17.253 秒，P95 25.893 秒。详见 `evals/baseline-2026-07-14-structured-physical.md`。
 - 历史记录：线上 Markdown/DOCX 抽取、浏览器主流程和桌面/移动响应式检查曾通过，但本轮未重新执行带密码的浏览器验证。
 - 待验证：人工首稿采用率、人工修改比例、五维质量评分和准确 token/成本。
