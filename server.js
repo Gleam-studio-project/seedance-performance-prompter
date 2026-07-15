@@ -23,7 +23,7 @@ const ALLOW_CLIENT_BASE_URL = envFlag("ALLOW_CLIENT_BASE_URL");
 const ALLOW_CLIENT_API_KEY = envFlag("ALLOW_CLIENT_API_KEY");
 const APP_USER = process.env.APP_USER || process.env.BASIC_AUTH_USER || "team";
 const APP_PASSWORD = process.env.APP_PASSWORD || process.env.BASIC_AUTH_PASSWORD || "";
-const AUTH_ENABLED = Boolean(APP_PASSWORD);
+const AUTH_ENABLED = envFlag("ENABLE_AUTH") && Boolean(APP_PASSWORD);
 const CORS_ORIGIN = process.env.CORS_ORIGIN || (process.env.NODE_ENV === "production" ? "null" : "*");
 
 const mimeTypes = {

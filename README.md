@@ -83,6 +83,7 @@ ALLOW_CLIENT_BASE_URL=false
 CORS_ORIGIN=
 APP_USER=team
 APP_PASSWORD=换成强密码
+ENABLE_AUTH=true
 ```
 
 最简单的容器部署方式：
@@ -92,7 +93,7 @@ docker build -t performance-prompter .
 docker run --env-file .env -p 4174:4174 performance-prompter
 ```
 
-部署平台如果会自动注入 `PORT`，不要在平台里写死端口；保留 `HOST=0.0.0.0` 即可。公网环境建议始终设置 `APP_PASSWORD`，否则任何拿到链接的人都能消耗模型额度。
+部署平台如果会自动注入 `PORT`，不要在平台里写死端口；保留 `HOST=0.0.0.0` 即可。如果需要团队登录保护，同时设置 `ENABLE_AUTH=true` 和 `APP_PASSWORD`；默认不启用登录，任何拿到链接的人都可能消耗模型额度。
 
 前端和 API 同域部署时保持 `CORS_ORIGIN` 为空即可；生产环境会默认拒绝跨域 API 调用。只有前端部署在另一个可信域名时，才把该域名完整填写为 `CORS_ORIGIN=https://your-app.example.com`。
 
@@ -102,9 +103,9 @@ docker run --env-file .env -p 4174:4174 performance-prompter
 vercel --prod
 ```
 
-Vercel 版本会使用 `api/[...path].js` 作为 Serverless API 入口，并用后端 Basic Auth 保护 API；前端会在未登录时显示团队访问遮罩。当前 `vercel.json` 默认允许页面配置模型名和临时个人 Key，但不允许覆盖 Base URL；如果要使用团队统一 Key，需在 Vercel 项目环境变量里设置 `OPENAI_API_KEY`。Vercel 可稳定支持 `docx/txt/md`，`pdf` 依赖内置轻量解析器，扫描件仍需 OCR。
+Vercel 版本会使用 `api/[...path].js` 作为 Serverless API 入口；默认不要求登录，只有显式配置 `ENABLE_AUTH=true`、`APP_PASSWORD` 后才启用后端 Basic Auth 和前端访问遮罩。当前 `vercel.json` 默认允许页面配置模型名和临时个人 Key，但不允许覆盖 Base URL；如果要使用团队统一 Key，需在 Vercel 项目环境变量里设置 `OPENAI_API_KEY`。Vercel 可稳定支持 `docx/txt/md`，`pdf` 依赖内置轻量解析器，扫描件仍需 OCR。
 
-团队统一 Key 模式还必须在 Vercel 环境变量中设置 `APP_PASSWORD`，并覆盖 `ALLOW_CLIENT_API_KEY=false`、`ALLOW_CLIENT_BASE_URL=false`。Middleware 只公开首页、`app.js`、`styles.css`、健康检查和 API，仓库内其他文件统一返回 404。
+团队统一 Key 模式只需在 Vercel 环境变量中设置 `OPENAI_API_KEY`，并覆盖 `ALLOW_CLIENT_API_KEY=false`、`ALLOW_CLIENT_BASE_URL=false`；如需登录保护，再设置 `ENABLE_AUTH=true`、`APP_USER` 和 `APP_PASSWORD`。Middleware 只公开首页、`app.js`、`styles.css`、健康检查和 API，仓库内其他文件统一返回 404。
 
 健康检查地址：
 

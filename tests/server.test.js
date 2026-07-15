@@ -5,8 +5,9 @@ const http = require("node:http");
 // Keep tests deterministic even when a developer has a populated local .env.
 process.env.OPENAI_API_KEY = "";
 process.env.AIGC_API_KEY = "";
-process.env.APP_PASSWORD = "";
+process.env.APP_PASSWORD = "present-but-opt-in";
 process.env.BASIC_AUTH_PASSWORD = "";
+process.env.ENABLE_AUTH = "false";
 
 const requestListener = require("../server");
 

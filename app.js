@@ -246,7 +246,7 @@ async function refreshAiStatus() {
     els.aiProfileBtn.disabled = false;
   } catch {
     state.aiConfigured = false;
-    els.aiStatus.textContent = location.protocol === "file:" ? "需启动服务" : "待登录";
+    els.aiStatus.textContent = location.protocol === "file:" ? "需启动服务" : "待连接";
     els.aiStatus.classList.remove("is-ok");
   }
 }

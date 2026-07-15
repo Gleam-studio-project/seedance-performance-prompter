@@ -7,7 +7,7 @@
 - [ ] `OPENAI_MODEL_OPTIONS` 只包含团队批准的模型。
 - [ ] 团队统一 Key 模式设置 `ALLOW_CLIENT_API_KEY=false`。
 - [ ] 不需要第三方模型网关时设置 `ALLOW_CLIENT_BASE_URL=false`。
-- [ ] 设置强 `APP_PASSWORD`，并使用非默认 `APP_USER`。
+- [ ] 如需团队访问保护，设置 `ENABLE_AUTH=true`、强 `APP_PASSWORD`，并使用非默认 `APP_USER`；默认可不启用登录。
 - [ ] 前端与 API 同域时 `CORS_ORIGIN` 留空；跨域时只填写唯一可信 HTTPS Origin。
 
 ## 2. 发布前验证
@@ -25,7 +25,7 @@ git diff --check
 
 ```bash
 docker build -t performance-prompter:test .
-docker run --rm --env-file .env -e NODE_ENV=production -e HOST=0.0.0.0 -e APP_PASSWORD=p2-test-password -p 4174:4174 performance-prompter:test
+docker run --rm --env-file .env -e NODE_ENV=production -e HOST=0.0.0.0 -p 4174:4174 performance-prompter:test
 ```
 
 另一个终端验证：
@@ -36,7 +36,7 @@ curl -f -u team:p2-test-password http://127.0.0.1:4174/api/status
 curl -f -u team:p2-test-password -F file=@examples/example-billionaire-reveal.md http://127.0.0.1:4174/api/extract-file
 ```
 
-验收：首页与 API 受鉴权保护；健康检查 GET/HEAD 为 200；状态响应不含 Key；MD/DOCX 抽取成功。
+验收：首页与 API 按 `ENABLE_AUTH` 配置访问；健康检查 GET/HEAD 为 200；状态响应不含 Key；MD/DOCX 抽取成功。
 
 ## 4. Vercel 预检与发布
 
@@ -57,8 +57,8 @@ ALLOW_CLIENT_BASE_URL=false
 - [ ] `GET /` 返回 200，并包含 CSP、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`。
 - [ ] `/server.js`、`/package.json`、`/tests/`、`/evals/` 等非前端路径统一返回 404。
 - [ ] `GET /healthz` 与 `HEAD /healthz` 返回 200。
-- [ ] 未登录 `/api/status` 返回 401，错误凭据仍返回 401。
-- [ ] 正确凭据 `/api/status` 返回 200，响应和日志不含 Key/密码。
+- [ ] `ENABLE_AUTH=true` 时未登录 `/api/status` 返回 401，错误凭据仍返回 401；默认关闭时返回 200。
+- [ ] 鉴权开启时正确凭据 `/api/status` 返回 200，响应和日志不含 Key/密码。
 - [ ] OPTIONS 返回 204，生产 CORS 不是 `*`。
 - [ ] Markdown 与合成 DOCX 上传抽取成功。
 - [ ] `npm run smoke:ai` 使用生产配置完成至少 1 次。

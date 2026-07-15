@@ -21,6 +21,7 @@ process.env.ALLOW_CLIENT_API_KEY = "false";
 process.env.ALLOW_CLIENT_BASE_URL = "false";
 process.env.APP_USER = APP_USER;
 process.env.APP_PASSWORD = APP_PASSWORD;
+process.env.ENABLE_AUTH = "true";
 process.env.BASIC_AUTH_PASSWORD = "";
 process.env.CORS_ORIGIN = CORS_ORIGIN;
 

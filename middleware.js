@@ -18,7 +18,7 @@ export default function middleware(request) {
   }
 
   const password = process.env.APP_PASSWORD || process.env.BASIC_AUTH_PASSWORD || "";
-  if (!password) return;
+  if (!envFlag("ENABLE_AUTH") || !password) return;
 
   const user = process.env.APP_USER || process.env.BASIC_AUTH_USER || "team";
   const expected = `Basic ${btoa(`${user}:${password}`)}`;
@@ -31,4 +31,8 @@ export default function middleware(request) {
       "www-authenticate": "Basic realm=\"Performance Prompter\""
     }
   });
+}
+
+function envFlag(name) {
+  return /^(1|true|yes|on)$/i.test(String(process.env[name] || ""));
 }
