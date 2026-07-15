@@ -16,6 +16,7 @@
 - 阶段判断：功能型 MVP 已完成，处于真实模型验证和团队试用前；尚不能视为稳定生产版。
 - Skill 规则、5 份参考知识库和 2 个完整示例已存在，并已提交到 `main`。
 - 网页已覆盖项目名、目标市场、文件上传、剧本输入、人设草案/AI 生成与确认、全局调教、Prompt 生成、复制和下载。
+- 前端 P0/P1 可用性改版已完成：主流程按四步工作流展示，模型配置移入设置抽屉，场次和人设改为可确认对象，移动端采用单列步骤流。
 - 后端已提供 `/api/status`、`/api/extract-file`、`/api/generate-profile`、`/api/generate-prompt`、`/api/tune` 和 `/healthz`。
 - 本地无模型 Key 时，页面可使用规则兜底完成主流程。
 - 已具备可选 Basic Auth、Docker 和 Vercel 部署入口；提交 `c1a59ee` 已发布到 Vercel Production，线上默认无需登录。
@@ -108,5 +109,7 @@
 - 2026-07-14：最终 12 场景均取得 PASS 输出，其中 1 条上游 TLS 中断后原样重试；可观测覆盖 100%，3 个显式物理因果镜头全部通过，P50 17.253 秒，P95 25.893 秒。详见 `evals/baseline-2026-07-14-structured-physical.md`。
 - 2026-07-15：鉴权改为显式开关；仅 `ENABLE_AUTH=true` 且存在 `APP_PASSWORD` 时启用 Basic Auth，默认无需设置用户名和密码；29/29 自动化测试、语法检查和差异检查通过。
 - 2026-07-15：提交 `c1a59ee` 发布为 Vercel Production，部署 `dpl_FGgtbp7iJzMoAC3HuwfVVQybmf17` 状态 READY；首页 200、`/healthz` 200、未登录 `/api/status` 200 且 `authEnabled=false`，非公开文件路径 404。
+- 2026-07-15：按 UI/UX 重构设计完成 P0/P1 前端改版；页面改为“剧本 -> 人设 -> 场次 -> Prompt”四步工作流，加入候选场次卡片、人物卡片、设置抽屉、前置条件状态和 Prompt 镜头预览。
+- 2026-07-15：浏览器验收通过桌面四步切换、场次点击选择、人设卡片数量、设置抽屉和 375px 移动端无页面横向滚动；`npm run check` 与 `npm test` 29/29 通过。
 - 历史记录：线上 Markdown/DOCX 抽取、浏览器主流程和桌面/移动响应式检查曾通过，但本轮未重新执行带密码的浏览器验证。
 - 待验证：人工首稿采用率、人工修改比例、五维质量评分和准确 token/成本。

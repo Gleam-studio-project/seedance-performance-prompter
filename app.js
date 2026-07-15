@@ -43,7 +43,31 @@ const els = {
   authForm: document.querySelector("#authForm"),
   authUser: document.querySelector("#authUser"),
   authPassword: document.querySelector("#authPassword"),
-  authError: document.querySelector("#authError")
+  authError: document.querySelector("#authError"),
+  saveStatus: document.querySelector("#saveStatus"),
+  settingsBtn: document.querySelector("#settingsBtn"),
+  closeSettingsBtn: document.querySelector("#closeSettingsBtn"),
+  settingsDrawer: document.querySelector("#settingsDrawer"),
+  stepProgress: document.querySelector("#stepProgress"),
+  stepButtons: [...document.querySelectorAll(".step-button")],
+  stepPanes: [...document.querySelectorAll(".step-pane")],
+  railProjectName: document.querySelector("#railProjectName"),
+  railSelectionSummary: document.querySelector("#railSelectionSummary"),
+  railRequirementCount: document.querySelector("#railRequirementCount"),
+  requirements: [...document.querySelectorAll(".requirement")],
+  scriptCharCount: document.querySelector("#scriptCharCount"),
+  sceneList: document.querySelector("#sceneList"),
+  sceneCandidateCount: document.querySelector("#sceneCandidateCount"),
+  selectedSceneCard: document.querySelector("#selectedSceneCard"),
+  manualSelectBtn: document.querySelector("#manualSelectBtn"),
+  profileCards: document.querySelector("#profileCards"),
+  profileActionHint: document.querySelector("#profileActionHint"),
+  scriptActionHint: document.querySelector("#scriptActionHint"),
+  sceneSummary: document.querySelector("#sceneSummary"),
+  sceneReadyState: document.querySelector("#sceneReadyState"),
+  generationError: document.querySelector("#generationError"),
+  promptCheckSummary: document.querySelector("#promptCheckSummary"),
+  shotOutline: document.querySelector("#shotOutline")
 };
 
 const sampleScript = `项目：Hidden Vows
@@ -196,6 +220,8 @@ let state = {
     modelOptions: []
   },
   profileConfirmed: false,
+  currentStep: "script",
+  sceneSelection: "",
   tuning: [
     {
       role: "ai",
@@ -203,6 +229,165 @@ let state = {
     }
   ]
 };
+
+const STEP_ORDER = ["script", "profile", "scene", "prompt"];
+
+function currentStepIndex() {
+  return Math.max(0, STEP_ORDER.indexOf(state.currentStep));
+}
+
+function hasSelectedScene() {
+  return Boolean(getSelection());
+}
+
+function isStepComplete(step) {
+  if (step === "script") return Boolean(els.scriptInput.value.trim()) && hasSelectedScene();
+  if (step === "profile") return Boolean(state.profileConfirmed && els.profileInput.value.trim());
+  if (step === "scene") return hasSelectedScene() && Boolean(els.durationSelect.value);
+  if (step === "prompt") return Boolean(els.promptOutput.value.trim()) && els.promptQuality.classList.contains("is-ok");
+  return false;
+}
+
+function canEnterStep(step) {
+  const index = STEP_ORDER.indexOf(step);
+  if (index <= 0) return true;
+  if (!isStepComplete("script")) {
+    showToast("先导入剧本并选择一个场次");
+    return false;
+  }
+  if (index >= 2 && !isStepComplete("profile")) {
+    showToast("先确认人物表演档案");
+    return false;
+  }
+  if (index >= 3 && !isStepComplete("scene")) {
+    showToast("先确认场次参数");
+    return false;
+  }
+  return true;
+}
+
+function setStep(step, { silent = false } = {}) {
+  if (!STEP_ORDER.includes(step) || (!silent && !canEnterStep(step))) return;
+  state.currentStep = step;
+  els.stepPanes.forEach((pane) => {
+    const active = pane.dataset.stepPane === step;
+    pane.classList.toggle("is-active", active);
+    pane.hidden = !active;
+  });
+  els.stepButtons.forEach((button) => {
+    const active = button.dataset.step === step;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-current", active ? "step" : "false");
+  });
+  els.stepProgress.textContent = `第 ${currentStepIndex() + 1} 步，共 ${STEP_ORDER.length} 步`;
+  updateWorkflowStatus();
+  updateSceneSummary();
+  if (step === "prompt") renderShotOutline(els.promptOutput.value);
+  saveState(false);
+}
+
+function updateWorkflowStatus() {
+  const completeCount = STEP_ORDER.filter(isStepComplete).length;
+  els.railRequirementCount.textContent = `${completeCount}/4`;
+  els.stepButtons.forEach((button) => button.classList.toggle("is-complete", isStepComplete(button.dataset.step)));
+  els.requirements.forEach((button) => button.classList.toggle("is-done", isStepComplete(button.dataset.requirement)));
+  els.railProjectName.textContent = els.projectName.value.trim() || "未命名项目";
+  els.railSelectionSummary.textContent = hasSelectedScene() ? `${getSelection().length} 字场次已选` : "尚未选择场次";
+  if (els.scriptActionHint) els.scriptActionHint.textContent = hasSelectedScene() ? "场次已选，可以继续" : "选择场次后才能继续";
+  if (els.profileActionHint) els.profileActionHint.textContent = state.profileConfirmed ? "人设已确认，可以继续" : "确认人设后进入场次设置";
+}
+
+function updateSaveStatus(status = "已保存") {
+  if (els.saveStatus) els.saveStatus.textContent = status;
+}
+
+function splitSceneCandidates(script) {
+  const normalized = script.replace(/\r/g, "").trim();
+  if (!normalized) return [];
+  let blocks = normalized.split(/\n\s*\n+/).map((block) => block.trim()).filter((block) => block.length >= 36);
+  if (blocks.length <= 1) {
+    blocks = normalized.split(/(?=\n\s*(?:场景|SCENE|INT\.|EXT\.)\s*[:：.-]?)/i).map((block) => block.trim()).filter((block) => block.length >= 36);
+  }
+  if (blocks.length <= 1 && normalized.length >= 36) {
+    const lines = normalized.split("\n").map((line) => line.trim()).filter(Boolean);
+    blocks = [];
+    for (let index = 0; index < lines.length; index += 5) {
+      const block = lines.slice(index, index + 7).join("\n");
+      if (block.length >= 36) blocks.push(block);
+    }
+  }
+  const explicitSceneBlocks = blocks.filter((block) => /(^|\n)\s*(场景|SCENE|INT\.|EXT\.)\s*[:：.-]?/i.test(block));
+  if (explicitSceneBlocks.length) blocks = explicitSceneBlocks;
+  else blocks = blocks.filter((block) => !/^(项目|目标市场|主要人物|对白)\s*[:：]/.test(block));
+  return blocks.slice(0, 10).map((text, index) => ({ id: `scene-${index + 1}`, text, title: sceneTitle(text, index) }));
+}
+
+function sceneTitle(text, index) {
+  const firstLine = text.split("\n").find(Boolean) || "";
+  const cleaned = firstLine.replace(/^[#\d.\s-]+/, "").trim();
+  return (cleaned.slice(0, 28) || `候选场次 ${index + 1}`);
+}
+
+function renderSceneCandidates() {
+  const candidates = splitSceneCandidates(els.scriptInput.value);
+  els.sceneCandidateCount.textContent = String(candidates.length);
+  if (!candidates.length) {
+    els.sceneList.innerHTML = '<div class="empty-state">先导入或粘贴剧本，这里会出现候选场次。</div>';
+    return;
+  }
+  els.sceneList.innerHTML = "";
+  candidates.forEach((candidate, index) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "scene-card";
+    card.dataset.sceneId = candidate.id;
+    card.innerHTML = `<strong>${escapeHtml(candidate.title)}</strong><span>${escapeHtml(candidate.text.replace(/\s+/g, " ").slice(0, 110))}${candidate.text.length > 110 ? "…" : ""}</span>`;
+    card.addEventListener("click", () => selectSceneCandidate(candidate, index));
+    els.sceneList.append(card);
+  });
+  const selected = getSelection();
+  if (selected) renderSelectedScene(selected);
+}
+
+function selectSceneCandidate(candidate, index = 0) {
+  const start = els.scriptInput.value.indexOf(candidate.text);
+  if (start >= 0) {
+    els.scriptInput.focus();
+    els.scriptInput.setSelectionRange(start, start + candidate.text.length);
+  }
+  state.sceneSelection = candidate.text;
+  renderSelectedScene(candidate.text, candidate.title);
+  updateSelectionCount();
+  updateWorkflowStatus();
+  [...els.sceneList.querySelectorAll(".scene-card")].forEach((card, cardIndex) => card.classList.toggle("is-selected", cardIndex === index));
+  showToast("场次已选中");
+}
+
+function renderSelectedScene(text, title = "当前场次") {
+  if (!text) {
+    els.selectedSceneCard.hidden = true;
+    return;
+  }
+  els.selectedSceneCard.hidden = false;
+  els.selectedSceneCard.innerHTML = `<strong>${escapeHtml(title)}</strong><p>${escapeHtml(text.replace(/\s+/g, " ").slice(0, 130))}${text.length > 130 ? "…" : ""}</p>`;
+}
+
+function updateSceneSummary() {
+  const selected = getSelection();
+  if (!selected) {
+    els.sceneSummary.innerHTML = '<span class="summary-label">当前场次</span><strong>尚未选择场次</strong><p>返回剧本步骤选择一段完整剧情。</p>';
+    els.sceneReadyState.textContent = "待设置";
+    els.sceneReadyState.classList.remove("is-ok");
+    return;
+  }
+  els.sceneSummary.innerHTML = `<span class="summary-label">当前场次 · ${selected.length} 字</span><strong>${escapeHtml(sceneTitle(selected, 0))}</strong><p>${escapeHtml(selected.replace(/\s+/g, " ").slice(0, 180))}${selected.length > 180 ? "…" : ""}</p>`;
+  els.sceneReadyState.textContent = "可以生成";
+  els.sceneReadyState.classList.add("is-ok");
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[character]));
+}
 
 async function requestJson(url, options = {}) {
   const authToken = sessionStorage.getItem(AUTH_STORAGE);
@@ -347,6 +532,10 @@ function loadState() {
     els.modelInput.value = state.modelConfig?.model || "";
     els.baseUrlInput.value = state.modelConfig?.baseUrl || "";
     els.apiKeyInput.value = sessionStorage.getItem(MODEL_KEY_STORAGE) || "";
+    renderSceneCandidates();
+    renderProfileCards();
+    updateSelectionCount();
+    setStep(state.currentStep || "script", { silent: true });
   } catch (error) {
     console.warn("Could not load saved project", error);
   }
@@ -362,6 +551,7 @@ function saveState(showMessage = true) {
     state
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  updateSaveStatus("已保存");
   if (showMessage) showToast("已保存到本机浏览器");
 }
 
@@ -376,6 +566,42 @@ function updateProfileState() {
   els.profileState.textContent = state.profileConfirmed ? "已确认" : "待确认";
   els.profileState.classList.toggle("is-ok", state.profileConfirmed);
   els.profileState.classList.toggle("is-warn", !state.profileConfirmed);
+  renderProfileCards();
+  updateWorkflowStatus();
+}
+
+function renderProfileCards() {
+  const raw = els.profileInput?.value.trim() || "";
+  if (!raw) {
+    els.profileCards.innerHTML = '<div class="empty-state">还没有人设草案。点击“AI 生成人设草案”，或从左侧剧本提取。</div>';
+    return;
+  }
+  const blocks = raw.split(/\n\s*---\s*\n/).map((block) => block.trim()).filter(Boolean);
+  els.profileCards.innerHTML = "";
+  blocks.forEach((block, index) => {
+    const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+    const name = (lines.find((line) => /人物ID/.test(line)) || `人物 ${index + 1}`).replace(/^人物ID\s*[:：]\s*/, "");
+    const fields = [
+      ["性格底色", lines.find((line) => /性格底色/.test(line))],
+      ["关系动力学", lines.find((line) => /关系动力学/.test(line))],
+      ["表演习惯 Tell", lines.find((line) => /Tell/.test(line))],
+      ["微表情与身体", lines.find((line) => /压抑|强装|核心情绪/.test(line))]
+    ];
+    const card = document.createElement("article");
+    card.className = "profile-card";
+    const head = document.createElement("div");
+    head.className = "profile-card-head";
+    head.innerHTML = `<strong>${escapeHtml(name.replace(/^[-：:]+/, "").trim())}</strong><span class="state-pill ${state.profileConfirmed ? "is-ok" : "is-warn"}">${state.profileConfirmed ? "已确认" : "待确认"}</span>`;
+    card.append(head);
+    fields.forEach(([label, value]) => {
+      if (!value) return;
+      const field = document.createElement("div");
+      field.className = "profile-field";
+      field.innerHTML = `<span>${escapeHtml(label)}</span><strong>${escapeHtml(value.replace(/^[-\u4e00-\u9fa5A-Za-z ]+\s*[:：]\s*/, "").slice(0, 150))}</strong>`;
+      card.append(field);
+    });
+    els.profileCards.append(card);
+  });
 }
 
 function setBusy(element, isBusy, busyText) {
@@ -392,12 +618,17 @@ function setBusy(element, isBusy, busyText) {
 function getSelection() {
   const start = els.scriptInput.selectionStart;
   const end = els.scriptInput.selectionEnd;
-  return els.scriptInput.value.slice(start, end).trim();
+  const selected = els.scriptInput.value.slice(start, end).trim();
+  return selected || state.sceneSelection || "";
 }
 
 function updateSelectionCount() {
   const selected = getSelection();
-  els.selectionCount.textContent = selected ? `${selected.length} 字已选择` : "未选择剧情";
+  els.selectionCount.textContent = selected ? `${selected.length} 字场次已选` : "未选择场次";
+  els.scriptCharCount.textContent = `${els.scriptInput.value.length.toLocaleString("zh-CN")} 字`;
+  if (selected) renderSelectedScene(selected);
+  updateSceneSummary();
+  updateWorkflowStatus();
 }
 
 function addMessage(role, text) {
@@ -423,15 +654,17 @@ function renderTuningLog() {
 
 function extractCharacters(script) {
   const names = new Set();
+  const listedNames = [];
+  const listedMatches = script.matchAll(/(^|\n)\s*([A-Z][a-z]+(?:\s[A-Z][a-z]+){0,2}|[\u4e00-\u9fa5]{2,4})[，,]\s*\d{2}岁/g);
+  for (const match of listedMatches) {
+    listedNames.push(match[2].trim());
+  }
+  if (listedNames.length) return [...new Set(listedNames)].slice(0, 5);
+
   const colonMatches = script.matchAll(/(^|\n)\s*([\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z ._-]{1,28})[:：]/g);
   for (const match of colonMatches) {
     const name = match[2].trim();
     if (!["项目", "目标市场", "主要人物", "场景", "对白"].includes(name)) names.add(name);
-  }
-
-  const listedMatches = script.matchAll(/([A-Z][a-z]+(?:\s[A-Z][a-z]+){0,2}|[\u4e00-\u9fa5]{2,4})[，,]\s*(\d{2}岁|[A-Za-z\u4e00-\u9fa5 ]{2,16})/g);
-  for (const match of listedMatches) {
-    names.add(match[1].trim());
   }
 
   return [...names].slice(0, 5);
@@ -538,6 +771,7 @@ function buildProfileDraft() {
   els.profileInput.value = profile;
   state.profileConfirmed = false;
   updateProfileState();
+  renderProfileCards();
   saveState(false);
   showToast("已生成草案，请确认或修改人设");
 }
@@ -562,6 +796,7 @@ async function generateProfileWithAi() {
     els.profileInput.value = payload.profile || "";
     state.profileConfirmed = false;
     updateProfileState();
+    renderProfileCards();
     saveState(false);
     showToast("AI 人设草案已生成，请确认");
   } catch (error) {
@@ -674,6 +909,10 @@ function buildLocalPrompt() {
   els.promptQuality.textContent = "已生成";
   els.promptQuality.classList.add("is-ok");
   renderChecks(result);
+  els.generationError.hidden = true;
+  els.localGenerateBtn.hidden = true;
+  renderShotOutline(result);
+  setStep("prompt", { silent: true });
   saveState(false);
   showToast("Prompt 已生成");
 }
@@ -710,11 +949,17 @@ async function buildPrompt() {
     els.promptQuality.textContent = "AI 已生成";
     els.promptQuality.classList.add("is-ok");
     renderChecks(els.promptOutput.value);
+    els.generationError.hidden = true;
+    els.localGenerateBtn.hidden = true;
+    renderShotOutline(els.promptOutput.value);
+    setStep("prompt", { silent: true });
     saveState(false);
     showToast("AI Prompt 已生成");
   } catch (error) {
-    showToast(`AI 不可用，改用本地规则兜底：${error.message}`);
-    buildLocalPrompt();
+    els.generationError.hidden = false;
+    els.generationError.textContent = `AI 生成失败：${error.message}。你可以重试，或使用本地规则生成一个可编辑版本。`;
+    els.localGenerateBtn.hidden = false;
+    showToast("AI 生成失败，请选择重试或本地规则");
   } finally {
     restore();
     refreshAiStatus();
@@ -725,7 +970,7 @@ function renderChecks(prompt) {
   const checks = [
     ["包含连续镜头时间戳", /镜头 1 \(0–\d+秒\)：/.test(prompt)],
     ["包含一致性锁定段", prompt.includes("一致性锁定：脸部、发型、服装保持与@图1一致")],
-    ["包含负向约束段", prompt.includes("负向约束：不要字幕、水印和夸张表情")],
+    ["包含当前负向约束段", prompt.includes("负向约束：避免画面抖动、镜头剧烈晃动")],
     ["无明显无效技术参数", !/(8K|24fps|f\/2\.8|ISO\s*\d+|\bfast\b)/i.test(prompt)],
     ["欧美市场对白无中文残留", els.marketSelect.value !== "overseas" || !/对话："[^"]*[\u4e00-\u9fa5]/.test(prompt)],
     ["表演描述含微动作或肌肉信号", /(眉|眼睑|嘴|唇|喉结|指节|呼吸|肩|下颌|鼻翼)/.test(prompt)]
@@ -736,6 +981,29 @@ function renderChecks(prompt) {
     item.classList.toggle("warn", !ok);
     item.textContent = label;
     els.checkList.append(item);
+  });
+  const failed = checks.filter(([, ok]) => !ok).length;
+  els.promptCheckSummary.classList.toggle("is-ok", Boolean(prompt) && failed === 0);
+  els.promptCheckSummary.classList.toggle("is-warn", Boolean(prompt) && failed > 0);
+  els.promptCheckSummary.innerHTML = prompt
+    ? `<strong>${failed ? `需要处理 ${failed} 项` : `通过 ${checks.length}/${checks.length}`}</strong><span>${failed ? "展开下方详情，定位需要修改的部分。" : "当前 Prompt 满足基础格式和表演可观测性要求。"}</span>`
+    : "<strong>等待生成</strong><span>生成后这里会显示格式自检结果。</span>";
+  updateWorkflowStatus();
+}
+
+function renderShotOutline(prompt) {
+  if (!prompt || !els.shotOutline) return;
+  const shots = [...prompt.matchAll(/(镜头\s*\d+\s*\([^\n]+\)：)([\s\S]*?)(?=\n\s*镜头\s*\d+\s*\(|\n\s*一致性锁定|$)/g)];
+  if (!shots.length) {
+    els.shotOutline.innerHTML = '<div class="empty-state">暂时无法识别镜头结构，请检查输出格式。</div>';
+    return;
+  }
+  els.shotOutline.innerHTML = "";
+  shots.forEach(([_, title, body]) => {
+    const item = document.createElement("article");
+    item.className = "shot-item";
+    item.innerHTML = `<strong>${escapeHtml(title.trim())}</strong><span>${escapeHtml(body.replace(/\s+/g, " ").trim().slice(0, 230))}</span>`;
+    els.shotOutline.append(item);
   });
 }
 
@@ -753,6 +1021,8 @@ function resetProject() {
     modelConfig,
     modelCapabilities,
     profileConfirmed: false,
+    currentStep: "script",
+    sceneSelection: "",
     tuning: [
       {
         role: "ai",
@@ -764,8 +1034,13 @@ function resetProject() {
   renderChecks("");
   updateProfileState();
   updateSelectionCount();
+  renderSceneCandidates();
+  renderProfileCards();
   els.promptQuality.textContent = "未生成";
   els.promptQuality.classList.remove("is-ok");
+  els.generationError.hidden = true;
+  els.localGenerateBtn.hidden = true;
+  setStep("script", { silent: true });
   saveState(false);
   showToast("已新建空项目");
 }
@@ -821,7 +1096,9 @@ async function handleScriptFile(file) {
       body: data
     });
     els.scriptInput.value = payload.text || "";
+    state.sceneSelection = "";
     state.profileConfirmed = false;
+    renderSceneCandidates();
     updateProfileState();
     updateSelectionCount();
     saveState(false);
@@ -867,6 +1144,10 @@ els.fileDropZone.addEventListener("drop", (event) => {
 els.sampleBtn.addEventListener("click", () => {
   els.scriptInput.value = sampleScript;
   els.projectName.value = "Hidden Vows";
+  state.sceneSelection = "";
+  renderSceneCandidates();
+  const firstCandidate = splitSceneCandidates(els.scriptInput.value)[0];
+  if (firstCandidate) selectSceneCandidate(firstCandidate, 0);
   updateSelectionCount();
   saveState(false);
   showToast("已载入示例剧本");
@@ -893,18 +1174,34 @@ els.scriptInput.addEventListener("select", updateSelectionCount);
 els.scriptInput.addEventListener("keyup", updateSelectionCount);
 els.scriptInput.addEventListener("mouseup", updateSelectionCount);
 els.scriptInput.addEventListener("input", () => {
+  state.sceneSelection = "";
   state.profileConfirmed = false;
+  renderSceneCandidates();
   updateProfileState();
   saveState(false);
 });
 els.profileInput.addEventListener("input", () => {
   state.profileConfirmed = false;
   updateProfileState();
+  renderProfileCards();
   saveState(false);
 });
 els.marketSelect.addEventListener("change", () => saveState(false));
-els.projectName.addEventListener("input", () => saveState(false));
+els.projectName.addEventListener("input", () => {
+  els.railProjectName.textContent = els.projectName.value.trim() || "未命名项目";
+  saveState(false);
+});
 els.saveModelBtn.addEventListener("click", () => saveModelSettings(true));
+els.settingsBtn.addEventListener("click", () => { els.settingsDrawer.hidden = false; });
+els.closeSettingsBtn.addEventListener("click", () => { els.settingsDrawer.hidden = true; });
+els.manualSelectBtn.addEventListener("click", () => {
+  els.scriptInput.focus();
+  showToast("请在剧本编辑器中选中完整场次");
+});
+els.stepButtons.forEach((button) => button.addEventListener("click", () => setStep(button.dataset.step)));
+els.requirements.forEach((button) => button.addEventListener("click", () => setStep(button.dataset.requirement)));
+document.querySelectorAll("[data-next-step]").forEach((button) => button.addEventListener("click", () => setStep(button.dataset.nextStep)));
+document.querySelectorAll("[data-prev-step]").forEach((button) => button.addEventListener("click", () => setStep(button.dataset.prevStep)));
 els.authForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const user = els.authUser.value.trim();
@@ -930,14 +1227,20 @@ els.tuningForm.addEventListener("submit", (event) => {
     .then((payload) => addMessage("ai", payload.reply || "已记住这条全局偏好。后续生成会优先影响节奏、表演密度和对白处理。"))
     .catch(() => addMessage("ai", "已记住这条全局偏好。后续生成会把它写入设计说明，并优先影响节奏、表演密度和对白处理。"));
 });
-els.generateBtn.addEventListener("click", buildPrompt);
+els.generateBtn.addEventListener("click", () => {
+  els.generationError.hidden = true;
+  buildPrompt();
+});
 els.localGenerateBtn.addEventListener("click", buildLocalPrompt);
 els.copyPromptBtn.addEventListener("click", copyPrompt);
 els.downloadPromptBtn.addEventListener("click", downloadPrompt);
 
 loadState();
 renderTuningLog();
+renderSceneCandidates();
+renderProfileCards();
 updateProfileState();
 updateSelectionCount();
 renderChecks(els.promptOutput.value);
+setStep(state.currentStep || "script", { silent: true });
 refreshAiStatus();

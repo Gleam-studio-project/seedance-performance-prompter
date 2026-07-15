@@ -12,8 +12,8 @@
         <div class="brand-block">
           <span class="brand-mark">PP</span>
           <div>
+            <p class="eyebrow">PERFORMANCE PROMPTER</p>
             <h1>AIGC 表演 Prompt 工作台</h1>
-            <p>剧本、人设确认、选段生成 Seedance 表演提示词</p>
           </div>
         </div>
         <div class="project-strip" aria-label="项目控制">
@@ -29,156 +29,122 @@
             </select>
           </label>
           <div class="model-status">
-            <span>模型</span>
+            <span>模型连接</span>
             <strong id="aiStatus">检测中</strong>
           </div>
+          <span id="saveStatus" class="save-status" aria-live="polite">未保存</span>
+          <button id="settingsBtn" class="icon-button" type="button" aria-label="打开设置" title="设置">设置</button>
           <button id="newProjectBtn" class="ghost-button" type="button">新建</button>
           <button id="saveProjectBtn" class="primary-button" type="button">保存</button>
         </div>
       </header>
 
-      <main class="workspace">
-        <section class="left-panel" aria-label="剧本输入区">
-          <div class="panel-head">
-            <div>
-              <h2>剧本</h2>
-              <p>粘贴完整剧本，选中一段剧情后生成右侧标准 prompt。</p>
-            </div>
-            <div class="selection-meter">
-              <span id="selectionCount">未选择剧情</span>
-            </div>
-          </div>
-          <div id="fileDropZone" class="file-drop-zone" tabindex="0" role="button" aria-label="拖入或选择剧本文件">
-            <input id="scriptFileInput" type="file" accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown">
-            <div>
-              <strong>拖入 PDF / DOCX / DOC</strong>
-              <span id="fileStatus">也可以点击选择文件，抽取后的文本会填入剧本区。</span>
-            </div>
-          </div>
-          <textarea id="scriptInput" spellcheck="false" placeholder="粘贴整体剧本、人物设定和目标场次。选中任意剧情片段后，点击右侧“生成 Prompt”。"></textarea>
-          <div class="script-tools">
-            <button id="sampleBtn" class="ghost-button" type="button">载入示例</button>
-            <button id="extractProfileBtn" class="ghost-button" type="button">从剧本提取人设草案</button>
-          </div>
-        </section>
+      <div class="workflow-bar" aria-label="工作流步骤">
+        <div class="workflow-title">
+          <span class="eyebrow">WORKFLOW</span>
+          <strong id="stepProgress">第 1 步，共 4 步</strong>
+        </div>
+        <nav class="stepper" aria-label="创作步骤">
+          <button class="step-button is-active" type="button" data-step="script" aria-current="step">
+            <span class="step-number">1</span><span><b>剧本</b><small>导入并选场次</small></span>
+          </button>
+          <span class="step-line" aria-hidden="true"></span>
+          <button class="step-button" type="button" data-step="profile">
+            <span class="step-number">2</span><span><b>人设</b><small>确认表演档案</small></span>
+          </button>
+          <span class="step-line" aria-hidden="true"></span>
+          <button class="step-button" type="button" data-step="scene">
+            <span class="step-number">3</span><span><b>场次</b><small>设置生成参数</small></span>
+          </button>
+          <span class="step-line" aria-hidden="true"></span>
+          <button class="step-button" type="button" data-step="prompt">
+            <span class="step-number">4</span><span><b>Prompt</b><small>检查并复制</small></span>
+          </button>
+        </nav>
+      </div>
 
-        <section class="center-panel" aria-label="人设确认与全局调教">
-          <div class="stacked-region">
-            <div class="panel-head tight">
-              <div>
-                <h2>人设确认</h2>
-                <p>生成前先确认人物表演档案，避免提示词漂移。</p>
-              </div>
-              <span id="profileState" class="state-pill">待确认</span>
-            </div>
-            <textarea id="profileInput" class="profile-editor" spellcheck="false" placeholder="这里会出现人物表演档案草案。你也可以手动补充：人物ID、性格底色、关系动力学、专属Tell、微表情库。"></textarea>
-            <div class="profile-actions">
-              <button id="aiProfileBtn" class="ghost-button" type="button">AI 生成人设</button>
-              <button id="confirmProfileBtn" class="primary-button" type="button">确认人设</button>
-              <button id="resetProfileBtn" class="ghost-button" type="button">重置确认</button>
-            </div>
+      <main class="workbench">
+        <aside class="context-rail" aria-label="当前项目摘要">
+          <div class="rail-card">
+            <span class="eyebrow">CURRENT PROJECT</span>
+            <strong id="railProjectName">未命名项目</strong>
+            <span id="railSelectionSummary" class="rail-muted">尚未选择场次</span>
           </div>
-
-          <div class="stacked-region tuning-region">
-            <div class="panel-head tight">
-              <div>
-                <h2>全局调教</h2>
-                <p>像和 AI 对话一样调整整体 skill 的偏好。</p>
-              </div>
-            </div>
-            <div class="model-config" aria-label="模型设置">
-              <label class="field">
-                <span>模型</span>
-                <input id="modelInput" list="modelOptions" type="text" autocomplete="off" placeholder="gpt-4.1">
-                <datalist id="modelOptions"></datalist>
-              </label>
-              <label class="field">
-                <span>Base URL</span>
-                <input id="baseUrlInput" type="url" autocomplete="off" placeholder="https://api.openai.com/v1">
-              </label>
-              <label class="field">
-                <span>API Key</span>
-                <input id="apiKeyInput" type="password" autocomplete="off" placeholder="使用服务端 Key">
-              </label>
-              <button id="saveModelBtn" class="ghost-button" type="button">保存模型</button>
-            </div>
-            <div id="tuningLog" class="tuning-log" aria-live="polite"></div>
-            <form id="tuningForm" class="tuning-form">
-              <input id="tuningInput" type="text" autocomplete="off" placeholder="例如：更克制，少写运镜，多写呼吸和手部动作">
-              <button class="primary-button" type="submit">发送</button>
-            </form>
+          <div class="rail-card prerequisites">
+            <div class="rail-card-head"><strong>完成条件</strong><span id="railRequirementCount">0/4</span></div>
+            <button class="requirement" type="button" data-requirement="script"><span class="requirement-dot"></span><span>导入剧本并选择场次</span></button>
+            <button class="requirement" type="button" data-requirement="profile"><span class="requirement-dot"></span><span>确认人物表演档案</span></button>
+            <button class="requirement" type="button" data-requirement="scene"><span class="requirement-dot"></span><span>确认场景与时长</span></button>
+            <button class="requirement" type="button" data-requirement="prompt"><span class="requirement-dot"></span><span>生成并通过自检</span></button>
           </div>
-        </section>
-
-        <aside class="right-panel" aria-label="Seedance Prompt 输出区">
-          <div class="panel-head">
-            <div>
-              <h2>标准 Prompt</h2>
-              <p>右侧输出遵循现有 performance-prompter 的 B 格式。</p>
-            </div>
-            <span id="promptQuality" class="state-pill">未生成</span>
-          </div>
-
-          <div class="prompt-controls">
-            <label class="field">
-              <span>场景类型</span>
-              <select id="sceneTypeSelect">
-                <option value="auto">自动判断</option>
-                <option value="reveal">身份揭露</option>
-                <option value="argument">争吵爆发</option>
-                <option value="confession">克制告白</option>
-                <option value="breakdown">隐忍崩溃</option>
-                <option value="reunion">重逢</option>
-                <option value="farewell">诀别</option>
-                <option value="close">危险靠近</option>
-                <option value="guard">病床守护</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>时长</span>
-              <select id="durationSelect">
-                <option value="12">12 秒</option>
-                <option value="9">9 秒</option>
-                <option value="15">15 秒</option>
-              </select>
-            </label>
-          </div>
-
-          <button id="generateBtn" class="generate-button" type="button">AI 生成 Prompt</button>
-          <button id="localGenerateBtn" class="fallback-button" type="button">本地规则兜底生成</button>
-          <textarea id="promptOutput" class="prompt-output" spellcheck="false" placeholder="选中左侧剧本片段并确认人设后，生成结果会出现在这里。"></textarea>
-
-          <div class="output-actions">
-            <button id="copyPromptBtn" class="primary-button" type="button">复制</button>
-            <button id="downloadPromptBtn" class="ghost-button" type="button">下载 .txt</button>
-          </div>
-
-          <div class="diagnostics">
-            <h3>格式自检</h3>
-            <ul id="checkList"></ul>
+          <div class="rail-tip">
+            <strong>使用建议</strong>
+            <p>先选中一个完整场次，再确认人设。生成前只需处理当前步骤的决策。</p>
           </div>
         </aside>
+
+        <section class="main-stage" aria-live="polite">
+          <section class="step-pane is-active" data-step-pane="script" aria-labelledby="scriptStepTitle">
+            <div class="step-head">
+              <div><span class="step-kicker">STEP 1 / SCRIPT</span><h2 id="scriptStepTitle">导入剧本，选定要生成的场次</h2><p>可以上传文件，也可以直接粘贴。右侧会把段落整理成可点击的候选场次。</p></div>
+              <span id="selectionCount" class="state-pill">未选择场次</span>
+            </div>
+            <div class="script-layout">
+              <section class="editor-panel" aria-label="剧本编辑器">
+                <div id="fileDropZone" class="file-drop-zone" tabindex="0" role="button" aria-label="拖入或选择剧本文件">
+                  <input id="scriptFileInput" type="file" accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown">
+                  <span class="file-icon" aria-hidden="true">↑</span>
+                  <div><strong>导入剧本文件</strong><span id="fileStatus">PDF / DOCX / DOC / TXT / MD，解析后会填入编辑器</span></div>
+                </div>
+                <textarea id="scriptInput" spellcheck="false" placeholder="粘贴整体剧本、人物设定和目标场次。"></textarea>
+                <div class="editor-footer"><span id="scriptCharCount">0 字</span><div><button id="sampleBtn" class="ghost-button" type="button">载入示例</button><button id="extractProfileBtn" class="ghost-button" type="button">提取人设草案</button></div></div>
+              </section>
+              <aside class="scene-picker" aria-label="场次选择">
+                <div class="section-heading"><div><span class="step-kicker">SCENE PICKER</span><h3>候选场次</h3></div><span id="sceneCandidateCount" class="count-badge">0</span></div>
+                <p class="helper-text">点击一张卡片即可选中，不需要精确拖选文字。</p>
+                <div id="sceneList" class="scene-list"><div class="empty-state">先导入或粘贴剧本，这里会出现候选场次。</div></div>
+                <div id="selectedSceneCard" class="selected-scene-card" hidden></div>
+                <button id="manualSelectBtn" class="text-button" type="button">使用手动选择文本</button>
+              </aside>
+            </div>
+            <div class="step-actions"><span class="action-hint" id="scriptActionHint">选择场次后才能继续</span><button class="primary-button next-step-button" type="button" data-next-step="profile">进入人设确认 <span aria-hidden="true">→</span></button></div>
+          </section>
+
+          <section class="step-pane" data-step-pane="profile" aria-labelledby="profileStepTitle" hidden>
+            <div class="step-head"><div><span class="step-kicker">STEP 2 / PROFILE</span><h2 id="profileStepTitle">确认人物的表演档案</h2><p>AI 草案只负责起点，生成前请确认人物的性格、关系和可见动作。</p></div><span id="profileState" class="state-pill is-warn">待确认</span></div>
+            <div class="profile-toolbar"><button id="aiProfileBtn" class="primary-button" type="button">AI 生成人设草案</button><button id="confirmProfileBtn" class="ghost-button" type="button">确认人设</button><button id="resetProfileBtn" class="text-button" type="button">重置确认状态</button></div>
+            <div id="profileCards" class="profile-cards"><div class="empty-state">还没有人设草案。点击“AI 生成人设草案”，或从左侧剧本提取。</div></div>
+            <details class="raw-editor"><summary>查看和编辑原始人设文本</summary><textarea id="profileInput" class="profile-editor" spellcheck="false" placeholder="这里会出现人物表演档案草案。"></textarea></details>
+            <div class="step-actions"><button class="ghost-button prev-step-button" type="button" data-prev-step="script">← 返回剧本</button><span class="action-hint" id="profileActionHint">确认人设后进入场次设置</span><button class="primary-button next-step-button" type="button" data-next-step="scene">进入场次设置 <span aria-hidden="true">→</span></button></div>
+          </section>
+
+          <section class="step-pane" data-step-pane="scene" aria-labelledby="sceneStepTitle" hidden>
+            <div class="step-head"><div><span class="step-kicker">STEP 3 / SCENE</span><h2 id="sceneStepTitle">设置这一次生成的场次参数</h2><p>只保留影响当前 Prompt 的决策；高级调教已移到设置抽屉。</p></div><span id="sceneReadyState" class="state-pill">待设置</span></div>
+            <div class="scene-summary" id="sceneSummary"><span class="summary-label">当前场次</span><strong>尚未选择场次</strong><p>返回剧本步骤选择一段完整剧情。</p></div>
+            <div class="parameter-grid">
+              <label class="field"><span>场景类型</span><select id="sceneTypeSelect"><option value="auto">自动判断</option><option value="reveal">身份揭露</option><option value="argument">争吵爆发</option><option value="confession">克制告白</option><option value="breakdown">隐忍崩溃</option><option value="reunion">重逢</option><option value="farewell">诀别</option><option value="close">危险靠近</option><option value="guard">病床守护</option></select></label>
+              <label class="field"><span>视频时长</span><select id="durationSelect"><option value="12">12 秒</option><option value="9">9 秒</option><option value="15">15 秒</option></select></label>
+              <div class="parameter-note"><strong>默认策略</strong><span>主体 → 动作 → 环境物理反馈 → 镜头 → 氛围</span></div>
+            </div>
+            <div id="generationError" class="inline-error" hidden role="alert"></div>
+            <div class="step-actions"><button class="ghost-button prev-step-button" type="button" data-prev-step="profile">← 返回人设</button><span class="action-hint">生成后会自动进入 Prompt 检查</span><button id="generateBtn" class="primary-button generate-button" type="button">生成 Prompt <span aria-hidden="true">→</span></button><button id="localGenerateBtn" class="fallback-button" type="button" hidden>改用本地规则生成</button></div>
+          </section>
+
+          <section class="step-pane" data-step-pane="prompt" aria-labelledby="promptStepTitle" hidden>
+            <div class="step-head"><div><span class="step-kicker">STEP 4 / PROMPT</span><h2 id="promptStepTitle">检查结果，复制到 Seedance</h2><p>先看镜头结构，再复制完整文本。发现问题可以返回场次重新生成。</p></div><span id="promptQuality" class="state-pill">未生成</span></div>
+            <div id="promptCheckSummary" class="check-summary" role="status"><strong>等待生成</strong><span>生成后这里会显示格式自检结果。</span></div>
+            <div class="prompt-preview-grid"><div class="shot-preview"><div class="section-heading"><div><span class="step-kicker">SHOT OUTLINE</span><h3>镜头结构</h3></div><span class="helper-text">可观测动作</span></div><div id="shotOutline" class="shot-outline"><div class="empty-state">生成后显示镜头时间轴和表演动作。</div></div></div><textarea id="promptOutput" class="prompt-output" spellcheck="false" placeholder="完整 Prompt 会出现在这里。"></textarea></div>
+            <div class="prompt-actions"><button id="copyPromptBtn" class="primary-button" type="button">复制 Prompt</button><button id="downloadPromptBtn" class="ghost-button" type="button">下载 .txt</button><button class="ghost-button" type="button" data-prev-step="scene">← 返回修改参数</button></div>
+            <div class="diagnostics"><div class="section-heading"><div><span class="step-kicker">QUALITY CHECK</span><h3>格式自检详情</h3></div></div><ul id="checkList"></ul></div>
+          </section>
+        </section>
       </main>
     </div>
 
+    <aside id="settingsDrawer" class="settings-drawer" hidden aria-label="项目设置"><div class="drawer-head"><div><span class="step-kicker">SETTINGS</span><h2>高级设置</h2></div><button id="closeSettingsBtn" class="icon-button" type="button" aria-label="关闭设置">关闭</button></div><section class="drawer-section"><h3>模型连接</h3><p class="helper-text">普通创作不需要修改这些项。服务端配置优先。</p><div class="model-config"><label class="field"><span>模型</span><input id="modelInput" list="modelOptions" type="text" autocomplete="off" placeholder="使用服务端模型"><datalist id="modelOptions"></datalist></label><label class="field"><span>Base URL</span><input id="baseUrlInput" type="url" autocomplete="off" placeholder="使用服务端地址"></label><label class="field"><span>API Key</span><input id="apiKeyInput" type="password" autocomplete="off" placeholder="使用服务端 Key"></label><button id="saveModelBtn" class="ghost-button" type="button">保存模型设置</button></div></section><section class="drawer-section"><div class="section-heading"><div><h3>全局调教</h3><p class="helper-text">只影响后续生成，不改变当前已生成结果。</p></div></div><div id="tuningLog" class="tuning-log" aria-live="polite"></div><form id="tuningForm" class="tuning-form"><input id="tuningInput" type="text" autocomplete="off" placeholder="例如：更克制，少写运镜，多写呼吸和手部动作"><button class="primary-button" type="submit">发送</button></form></section></aside>
+
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-    <div id="authOverlay" class="auth-overlay" hidden>
-      <form id="authForm" class="auth-box">
-        <h2>团队访问</h2>
-        <label class="field">
-          <span>用户名</span>
-          <input id="authUser" type="text" autocomplete="username" value="team">
-        </label>
-        <label class="field">
-          <span>密码</span>
-          <input id="authPassword" type="password" autocomplete="current-password">
-        </label>
-        <button class="primary-button" type="submit">进入</button>
-        <p id="authError" class="auth-error" aria-live="polite"></p>
-      </form>
-    </div>
-
+    <div id="authOverlay" class="auth-overlay" hidden><form id="authForm" class="auth-box"><h2>团队访问</h2><label class="field"><span>用户名</span><input id="authUser" type="text" autocomplete="username" value="team"></label><label class="field"><span>密码</span><input id="authPassword" type="password" autocomplete="current-password"></label><button class="primary-button" type="submit">进入</button><p id="authError" class="auth-error" aria-live="polite"></p></form></div>
     <script src="./app.js"></script>
   </body>
 </html>
