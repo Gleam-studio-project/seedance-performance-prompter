@@ -6,3 +6,4 @@ uploads/
 .vercel
 evals/results/
 data/
+supabase/.temp/
