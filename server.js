@@ -26,6 +26,11 @@ const APP_USER = process.env.APP_USER || process.env.BASIC_AUTH_USER || "team";
 const APP_PASSWORD = process.env.APP_PASSWORD || process.env.BASIC_AUTH_PASSWORD || "";
 const AUTH_ENABLED = envFlag("ENABLE_AUTH") && Boolean(APP_PASSWORD);
 const CORS_ORIGIN = process.env.CORS_ORIGIN || (process.env.NODE_ENV === "production" ? "null" : "*");
+const SUPABASE_URL = String(process.env.SUPABASE_URL || "").trim().replace(/\/$/, "");
+const SUPABASE_SECRET_KEY = String(process.env.SUPABASE_SECRET_KEY || "").trim();
+const SUPABASE_PROJECTS_ENDPOINT = `${SUPABASE_URL}/rest/v1/projects`;
+const SUPABASE_TIMEOUT_MS = 10000;
+const USE_SUPABASE_PROJECTS = Boolean(SUPABASE_URL && SUPABASE_SECRET_KEY);
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -361,7 +366,142 @@ function isReadonlyFsError(error) {
   return /EROFS|EACCES|EPERM|ENOTSUP|read[- ]?only|不可写/i.test(String(error?.message || error?.code || ""));
 }
 
+function getProjectsStorageMode() {
+  return USE_SUPABASE_PROJECTS ? "supabase" : "fs";
+}
+
+function createTimeoutSignal(timeoutMs = SUPABASE_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error("Request timed out")), timeoutMs);
+  return {
+    signal: controller.signal,
+    clear() {
+      clearTimeout(timer);
+    }
+  };
+}
+
+function buildSupabaseHeaders(extraHeaders = {}) {
+  return {
+    apikey: SUPABASE_SECRET_KEY,
+    authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
+    ...extraHeaders
+  };
+}
+
+function encodeSupabaseEq(value) {
+  return encodeURIComponent(String(value));
+}
+
+async function parseJsonResponseSafe(response) {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
+}
+
+function extractSupabaseErrorMessage(payload, status, statusText) {
+  const detail = payload?.message || payload?.error_description || payload?.details || payload?.hint || payload?.error;
+  const suffix = detail ? `: ${String(detail)}` : statusText ? `: ${statusText}` : "";
+  return `Supabase request failed (${status})${suffix}`;
+}
+
+async function supabaseFetch(url, options = {}) {
+  const timeout = createTimeoutSignal(SUPABASE_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: timeout.signal
+    });
+    const payload = await parseJsonResponseSafe(response);
+    if (!response.ok) {
+      throw new Error(extractSupabaseErrorMessage(payload, response.status, response.statusText));
+    }
+    return payload;
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("Supabase request failed: timeout");
+    }
+    if (/^Supabase request failed/.test(String(error?.message || ""))) {
+      throw error;
+    }
+    throw new Error(`Supabase request failed: ${error?.message || "network error"}`);
+  } finally {
+    timeout.clear();
+  }
+}
+
+async function listProjectsFromSupabase() {
+  const rows = await supabaseFetch(
+    `${SUPABASE_PROJECTS_ENDPOINT}?select=id,payload,updated_at&order=updated_at.desc`,
+    {
+      method: "GET",
+      headers: buildSupabaseHeaders()
+    }
+  );
+
+  return Array.isArray(rows)
+    ? rows
+      .map((row) => row?.payload && typeof row.payload === "object" ? toProjectMeta(row.payload) : null)
+      .filter(Boolean)
+    : [];
+}
+
+async function getProjectFromSupabase(id) {
+  const rows = await supabaseFetch(
+    `${SUPABASE_PROJECTS_ENDPOINT}?id=eq.${encodeSupabaseEq(id)}&select=payload`,
+    {
+      method: "GET",
+      headers: buildSupabaseHeaders()
+    }
+  );
+  const payload = Array.isArray(rows) ? rows[0]?.payload : null;
+  return payload && typeof payload === "object" ? payload : null;
+}
+
+async function upsertProjectToSupabase(project) {
+  const body = [{
+    id: project.id,
+    payload: project,
+    updated_at: project.state?.updatedAt || new Date().toISOString()
+  }];
+
+  const rows = await supabaseFetch(SUPABASE_PROJECTS_ENDPOINT, {
+    method: "POST",
+    headers: buildSupabaseHeaders({
+      "content-type": "application/json",
+      prefer: "resolution=merge-duplicates,return=representation"
+    }),
+    body: JSON.stringify(body)
+  });
+
+  const payload = Array.isArray(rows) ? rows[0]?.payload : null;
+  return payload && typeof payload === "object" ? payload : project;
+}
+
+async function deleteProjectFromSupabase(id) {
+  await supabaseFetch(
+    `${SUPABASE_PROJECTS_ENDPOINT}?id=eq.${encodeSupabaseEq(id)}`,
+    {
+      method: "DELETE",
+      headers: buildSupabaseHeaders()
+    }
+  );
+}
+
 async function handleListProjects(req, res) {
+  if (getProjectsStorageMode() === "supabase") {
+    try {
+      const projects = await listProjectsFromSupabase();
+      return sendJson(res, 200, { ok: true, projects, writable: true });
+    } catch (error) {
+      return sendJson(res, 500, { error: error.message || "Supabase request failed" });
+    }
+  }
+
   try {
     await ensureProjectsDir();
     const entries = await fsp.readdir(PROJECTS_DIR, { withFileTypes: true });
@@ -401,6 +541,15 @@ async function handleCreateProject(req, res) {
   const id = validateProjectId(`${slugBase}-${Date.now().toString(36)}`);
   const project = buildProjectPayloadFromBody(id, { projectName, market, state: { currentStep: "script" } });
 
+  if (getProjectsStorageMode() === "supabase") {
+    try {
+      const saved = await upsertProjectToSupabase(project);
+      return sendJson(res, 200, { ok: true, project: toProjectMeta(saved), writable: true });
+    } catch (error) {
+      return sendJson(res, 500, { error: error.message || "Supabase request failed" });
+    }
+  }
+
   try {
     await ensureProjectsDir();
     await fsp.writeFile(projectFilePath(id), JSON.stringify(project, null, 2), "utf8");
@@ -415,6 +564,17 @@ async function handleCreateProject(req, res) {
 
 async function handleGetProject(req, res, id) {
   const projectId = validateProjectId(id);
+
+  if (getProjectsStorageMode() === "supabase") {
+    try {
+      const project = await getProjectFromSupabase(projectId);
+      if (!project) return sendJson(res, 404, { error: "Project not found" });
+      return sendJson(res, 200, { ok: true, project, writable: true });
+    } catch (error) {
+      return sendJson(res, 500, { error: error.message || "Supabase request failed" });
+    }
+  }
+
   await ensureProjectsDir();
   try {
     const raw = await fsp.readFile(projectFilePath(projectId), "utf8");
@@ -432,6 +592,15 @@ async function handlePutProject(req, res, id) {
   const projectId = validateProjectId(id);
   const project = buildProjectPayloadFromBody(projectId, body);
 
+  if (getProjectsStorageMode() === "supabase") {
+    try {
+      const saved = await upsertProjectToSupabase(project);
+      return sendJson(res, 200, { ok: true, project: saved, writable: true });
+    } catch (error) {
+      return sendJson(res, 500, { error: error.message || "Supabase request failed" });
+    }
+  }
+
   try {
     await ensureProjectsDir();
     await fsp.writeFile(projectFilePath(projectId), JSON.stringify(project, null, 2), "utf8");
@@ -446,6 +615,16 @@ async function handlePutProject(req, res, id) {
 
 async function handleDeleteProject(req, res, id) {
   const projectId = validateProjectId(id);
+
+  if (getProjectsStorageMode() === "supabase") {
+    try {
+      await deleteProjectFromSupabase(projectId);
+      return sendJson(res, 200, { ok: true, writable: true });
+    } catch (error) {
+      return sendJson(res, 500, { error: error.message || "Supabase request failed" });
+    }
+  }
+
   try {
     await ensureProjectsDir();
     await fsp.rm(projectFilePath(projectId), { force: true });

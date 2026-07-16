@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
+const path = require("node:path");
 
 // Keep tests deterministic even when a developer has a populated local .env.
 process.env.OPENAI_API_KEY = "";
@@ -8,6 +9,8 @@ process.env.AIGC_API_KEY = "";
 process.env.APP_PASSWORD = "present-but-opt-in";
 process.env.BASIC_AUTH_PASSWORD = "";
 process.env.ENABLE_AUTH = "false";
+process.env.SUPABASE_URL = "";
+process.env.SUPABASE_SECRET_KEY = "";
 
 const requestListener = require("../server");
 
@@ -245,6 +248,120 @@ test("rejects unsupported upload extensions", async () => {
   assert.deepEqual(await response.json(), { error: "Only PDF, DOCX, DOC, TXT and MD files are supported" });
 });
 
+test("supabase projects list uses remote rows and keeps response contract", async () => {
+  await withFreshServerEnv({
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SECRET_KEY: "secret-key"
+  }, async (url, options) => {
+    assert.match(String(url), /\/rest\/v1\/projects\?select=id,payload,updated_at&order=updated_at\.desc$/);
+    assert.equal(options.method, "GET");
+    assert.equal(options.headers.apikey, "secret-key");
+    assert.equal(options.headers.authorization, "Bearer secret-key");
+    return mockJsonResponse(200, [
+      {
+        id: "alpha",
+        updated_at: "2025-01-02T00:00:00.000Z",
+        payload: {
+          id: "alpha",
+          projectName: "Alpha",
+          market: "overseas",
+          state: { updatedAt: "2025-01-02T00:00:00.000Z" }
+        }
+      }
+    ]);
+  }, async (listener) => {
+    const response = await invokeJson(listener, "GET", "/api/projects");
+    assert.equal(response.status, 200);
+    assert.equal(response.body.ok, true);
+    assert.equal(response.body.writable, true);
+    assert.equal(response.body.projects.length, 1);
+    assert.equal(response.body.projects[0].id, "alpha");
+    assert.equal(response.body.projects[0].projectName, "Alpha");
+  });
+});
+
+test("supabase project create upserts and returns meta", async () => {
+  await withFreshServerEnv({
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SECRET_KEY: "secret-key"
+  }, async (url, options) => {
+    assert.equal(String(url), "https://example.supabase.co/rest/v1/projects");
+    assert.equal(options.method, "POST");
+    assert.equal(options.headers.prefer, "resolution=merge-duplicates,return=representation");
+    const rows = JSON.parse(options.body);
+    assert.equal(Array.isArray(rows), true);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].payload.projectName, "My Project");
+    return mockJsonResponse(200, rows);
+  }, async (listener) => {
+    const response = await invokeJson(listener, "POST", "/api/projects", {
+      projectName: "My Project",
+      market: "domestic"
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.ok, true);
+    assert.equal(response.body.writable, true);
+    assert.match(response.body.project.id, /^[a-z0-9-]+$/);
+    assert.equal(response.body.project.projectName, "My Project");
+  });
+});
+
+test("supabase project get returns stored payload", async () => {
+  await withFreshServerEnv({
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SECRET_KEY: "secret-key"
+  }, async (url, options) => {
+    assert.match(String(url), /\/rest\/v1\/projects\?id=eq\.demo-1&select=payload$/);
+    assert.equal(options.method, "GET");
+    return mockJsonResponse(200, [{
+      payload: {
+        id: "demo-1",
+        projectName: "Demo 1",
+        market: "overseas",
+        script: "scene",
+        profile: "",
+        prompt: "",
+        state: { projectId: "demo-1", updatedAt: "2025-01-03T00:00:00.000Z" }
+      }
+    }]);
+  }, async (listener) => {
+    const response = await invokeJson(listener, "GET", "/api/projects/demo-1");
+    assert.equal(response.status, 200);
+    assert.equal(response.body.ok, true);
+    assert.equal(response.body.writable, true);
+    assert.equal(response.body.project.id, "demo-1");
+    assert.equal(response.body.project.projectName, "Demo 1");
+  });
+});
+
+test("supabase project delete calls remote delete endpoint", async () => {
+  await withFreshServerEnv({
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SECRET_KEY: "secret-key"
+  }, async (url, options) => {
+    assert.match(String(url), /\/rest\/v1\/projects\?id=eq\.demo-2$/);
+    assert.equal(options.method, "DELETE");
+    return mockJsonResponse(200, []);
+  }, async (listener) => {
+    const response = await invokeJson(listener, "DELETE", "/api/projects/demo-2");
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body, { ok: true, writable: true });
+  });
+});
+
+test("supabase upstream failure returns clear sanitized error", async () => {
+  await withFreshServerEnv({
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SECRET_KEY: "top-secret-value"
+  }, async () => mockJsonResponse(500, { message: "db exploded" }, "Internal Server Error"), async (listener) => {
+    const response = await invokeJson(listener, "GET", "/api/projects");
+    assert.equal(response.status, 500);
+    assert.match(response.body.error, /Supabase request failed/);
+    assert.match(response.body.error, /500/);
+    assert.doesNotMatch(response.body.error, /top-secret-value/);
+  });
+});
+
 function rawRequest(pathname) {
   return new Promise((resolve, reject) => {
     const request = http.request({
@@ -262,6 +379,82 @@ function rawRequest(pathname) {
     });
     request.on("error", reject);
     request.end();
+  });
+}
+
+async function withFreshServerEnv(envOverrides, fetchImpl, run) {
+  const serverPath = path.resolve(__dirname, "../server.js");
+  const previousEnv = {};
+  for (const [key, value] of Object.entries(envOverrides)) {
+    previousEnv[key] = process.env[key];
+    process.env[key] = value;
+  }
+
+  const previousFetch = global.fetch;
+  global.fetch = fetchImpl;
+
+  delete require.cache[serverPath];
+
+  try {
+    const listener = require("../server");
+    return await run(listener);
+  } finally {
+    global.fetch = previousFetch;
+    delete require.cache[serverPath];
+
+    for (const [key, value] of Object.entries(previousEnv)) {
+      if (value == null) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+function mockJsonResponse(status, payload, statusText = "OK") {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText,
+    async text() {
+      return JSON.stringify(payload);
+    }
+  };
+}
+
+function invokeJson(listener, method, pathname, body) {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer(listener);
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address();
+      const request = http.request({
+        hostname: "127.0.0.1",
+        port,
+        path: pathname,
+        method,
+        headers: body ? { "content-type": "application/json" } : {}
+      }, (response) => {
+        const chunks = [];
+        response.on("data", (chunk) => chunks.push(chunk));
+        response.on("end", async () => {
+          try {
+            const raw = Buffer.concat(chunks).toString("utf8");
+            resolve({
+              status: response.statusCode,
+              body: raw ? JSON.parse(raw) : null
+            });
+          } catch (error) {
+            reject(error);
+          } finally {
+            server.close();
+          }
+        });
+      });
+      request.on("error", (error) => {
+        server.close(() => reject(error));
+      });
+      if (body) request.write(JSON.stringify(body));
+      request.end();
+    });
   });
 }
 
