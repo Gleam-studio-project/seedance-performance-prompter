@@ -1,7 +1,7 @@
 {
   "version": 2,
   "functions": {
-    "api/[...path].js": {
+    "api/index.js": {
       "maxDuration": 60,
       "includeFiles": "{SKILL.md,references/**,examples/**}"
     }
@@ -10,6 +10,14 @@
     {
       "source": "/healthz",
       "destination": "/api/healthz"
+    },
+    {
+      "source": "/api",
+      "destination": "/api"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
     }
   ],
   "headers": [
