@@ -1,11 +1,9 @@
-const CONSISTENCY_LOCK = "一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。";
-const NEGATIVE_CONSTRAINT = "负向约束：避免画面抖动、镜头剧烈晃动、人物面部变形、肢体错乱、手指数量异常、画面闪烁、过曝、过暗、字幕、水印和低画质模糊；不要快速切换、戏剧化大动作和生硬切镜。";
-const INVALID_PARAMETERS = /(8K|24fps|f\/2\.8|ISO\s*\d+|\bfast\b)/i;
+const INVALID_PARAMETERS = /(8K|24fps|f\/2\.8|ISO\s*\d+|\bfast\b|电影感参数|参数词)/i;
 
 const signalPatterns = {
-  face: /(眉|眼|眼睑|瞳孔|视线|目光|盯|凝视|注视|看向|望向|嘴|唇|鼻翼|下颌|面部|喉结)/,
-  breathVoice: /(呼吸|吸气|吐气|胸腔|胸口|声音|声线|音量|语速|停顿)/,
-  bodyProp: /(手|指|肩|背|身体|脚|步|姿态|重心|道具|话筒|杯|门|桌|墙|纸|衣|文件|钥匙|伞|病历|眼镜|笔|戒指|水龙头|手机)/
+  face: /(眉|眼|眼睑|瞳孔|视线|目光|凝视|注视|看向|望向|嘴|唇|鼻翼|下颌|面部|喉结|表情|慢眨眼)/,
+  breathVoice: /(呼吸|吸气|吐气|胸腔|胸口|声音|声线|音量|语速|停顿|耳语|鼻音)/,
+  bodyProp: /(手|指|肩|背|身体|脚|步|姿态|重心|道具|话筒|杯|门|桌|墙|纸|衣|文件|钥匙|伞|病历|眼镜|笔|戒指|水龙头|手机|手腕)/
 };
 
 const physicalCausalityRules = [
@@ -36,27 +34,29 @@ export function evaluateProfile(profile) {
 }
 
 export function evaluatePrompt(prompt, options = {}) {
-  const value = String(prompt || "");
+  const value = String(prompt || "").trim();
   const shots = parseShots(value);
-  const duration = Number(options.duration || 12);
   const expectsDialogue = options.expectsDialogue !== false;
-  const dialogue = [...value.matchAll(/对话：[“"]([^”"]+)[”"]/g)].map((match) => match[1]);
+  const dialogue = shots.map((shot) => shot.dialogue).filter((line) => line && line !== "无");
   const observableShots = shots.filter((shot) => countSignalCategories(shot.body) >= 2).length;
   const observableCoverage = shots.length ? observableShots / shots.length : 0;
   const physicalReport = evaluatePhysicalCausality(shots);
-  const consistencyIndex = value.lastIndexOf(CONSISTENCY_LOCK);
-  const negativeIndex = value.lastIndexOf(NEGATIVE_CONSTRAINT);
+  const durationSum = Number(shots.reduce((sum, shot) => sum + shot.duration, 0).toFixed(2));
 
   const checks = {
+    hasReferenceHeader: /^@.+?为场景参考[\s\S]*?根据以下序列分镜生成视频，全程无BGM、无字幕、无画面水印。/m.test(value),
     hasShots: shots.length > 0,
-    timestampsContinuous: timestampsAreContinuous(shots),
-    durationWithinLimit: shots.length > 0 && shots.every((shot) => shot.end <= duration),
-    fixedEndingOrder: consistencyIndex >= 0 && negativeIndex > consistencyIndex,
+    shotsSequential: shotsAreSequential(shots),
+    shotDurationsValid: shots.length > 0 && shots.every((shot) => shot.duration > 0),
+    totalDurationWithinLimit: durationSum > 0 && durationSum <= 15,
+    hasStyle: /\n风格：.+/m.test(value),
+    hasConstraint: /\n约束：.+/m.test(value),
+    hasSceneUnderstanding: /\n场景理解：.+/m.test(value),
+    hasDesignNote: /\n设计说明：.+/m.test(value),
     dialogueLanguage: dialogueLanguageIsValid(dialogue, options.market, expectsDialogue),
     noInvalidParameters: !INVALID_PARAMETERS.test(value),
     observableCoverage: observableCoverage >= 0.9,
-    physicalCausality: physicalReport.pass,
-    splitDocumented: !options.expectsSplit || /拆条对应[\s\S]*(条\s*2|条2|第二条|拆成\s*2|2\s*条)/.test(value)
+    physicalCausality: physicalReport.pass
   };
 
   return buildReport(checks, {
@@ -65,6 +65,7 @@ export function evaluatePrompt(prompt, options = {}) {
     dialogueLines: dialogue.length,
     observableShots,
     observableCoverage,
+    totalDuration: durationSum,
     physicalCausalityShots: physicalReport.causalShots,
     physicalCausalitySatisfied: physicalReport.satisfiedShots,
     physicalCausalityCoverage: physicalReport.coverage
@@ -77,29 +78,27 @@ export function assertContract(report, label) {
 }
 
 function parseShots(value) {
-  const pattern = /镜头\s+(\d+)\s*\(\s*(\d+)\s*[–—-]\s*(\d+)\s*秒\s*\)：([\s\S]*?)(?=\n\s*镜头\s+\d+|\n\s*一致性锁定：|\n\s*负向约束：|$)/g;
-  return [...value.matchAll(pattern)].map((match) => ({
-    number: Number(match[1]),
-    start: Number(match[2]),
-    end: Number(match[3]),
-    body: match[4].trim()
-  }));
+  const pattern = /分镜(\d+)：([\s\S]*?)(?=\n分镜\d+：|\n风格：|$)/g;
+  return [...value.matchAll(pattern)].map((match) => {
+    const body = match[2].trim();
+    const durationMatch = body.match(/时长：\s*([0-9]+(?:\.[05])?)s/);
+    const dialogueMatch = body.match(/台词：\s*([^\n。]+|"[^"]*"|“[^”]*”|无)/);
+    return {
+      number: Number(match[1]),
+      body,
+      duration: durationMatch ? Number(durationMatch[1]) : 0,
+      dialogue: (dialogueMatch ? dialogueMatch[1] : "").replace(/^台词：/, "").trim()
+    };
+  });
 }
 
-function timestampsAreContinuous(shots) {
+function shotsAreSequential(shots) {
   if (!shots.length) return false;
-  let previousEnd = null;
-  let previousNumber = null;
-  for (const shot of shots) {
-    if (shot.end <= shot.start) return false;
-    if (shot.start === 0) {
-      previousEnd = null;
-      previousNumber = null;
-    }
-    if (previousEnd !== null && shot.start !== previousEnd) return false;
-    if (previousNumber !== null && shot.number !== previousNumber + 1) return false;
-    previousEnd = shot.end;
-    previousNumber = shot.number;
+  for (let i = 0; i < shots.length; i += 1) {
+    if (shots[i].number !== i + 1) return false;
+    if (!/音效：/.test(shots[i].body)) return false;
+    if (!/台词：/.test(shots[i].body)) return false;
+    if (!/时长：\s*[0-9]+(?:\.[05])?s/.test(shots[i].body)) return false;
   }
   return true;
 }
@@ -107,8 +106,8 @@ function timestampsAreContinuous(shots) {
 function dialogueLanguageIsValid(lines, market, expectsDialogue) {
   if (!expectsDialogue) return true;
   if (!lines.length) return false;
-  if (market === "domestic") return lines.every((line) => /[\u4e00-\u9fa5]/.test(line));
-  return lines.every((line) => !/[\u4e00-\u9fa5]/.test(line));
+  if (market === "domestic") return lines.every((line) => line === "无" || /[\u4e00-\u9fa5]/.test(line));
+  return lines.every((line) => line === "无" || !/[\u4e00-\u9fa5]/.test(line));
 }
 
 function countSignalCategories(value) {

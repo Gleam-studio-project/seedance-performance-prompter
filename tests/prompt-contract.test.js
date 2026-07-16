@@ -3,8 +3,7 @@ const assert = require("node:assert/strict");
 const { readFile } = require("node:fs/promises");
 const path = require("node:path");
 
-const LEGACY_NEGATIVE_CONSTRAINT = "负向约束：不要字幕、水印和夸张表情；不要生硬切镜；避免抖动和剧烈动作。";
-const NEGATIVE_CONSTRAINT = "负向约束：避免画面抖动、镜头剧烈晃动、人物面部变形、肢体错乱、手指数量异常、画面闪烁、过曝、过暗、字幕、水印和低画质模糊；不要快速切换、戏剧化大动作和生硬切镜。";
+const NEGATIVE_CONSTRAINT_LINE = "约束：Alexander先开口，Lily后反应；情绪由强撑转向失衡再被重新压住；全段不增加其他人物；动作自然、口型准确、无穿模、无闪烁，避免画面抖动、镜头剧烈晃动、人物面部变形、肢体错乱、手指数量异常、过曝、过暗、字幕、水印和低画质模糊；不要快速切换、戏剧化大动作和生硬切镜。";
 
 let evaluateProfile;
 let evaluatePrompt;
@@ -16,7 +15,7 @@ test.before(async () => {
 });
 
 test("accepts a compliant overseas prompt", () => {
-  const report = evaluatePrompt(validPrompt('"I know what you did."'), {
+  const report = evaluatePrompt(validPrompt('"I know what you did."', "overseas"), {
     market: "overseas",
     duration: 12,
     expectsDialogue: true,
@@ -27,69 +26,67 @@ test("accepts a compliant overseas prompt", () => {
   assert.equal(report.metrics.observableCoverage, 1);
 });
 
-test("rejects language, timestamp, parameter, and observability violations", () => {
-  const prompt = `镜头 1 (0–4秒)：\n她很伤心。\n对话："我知道了。"\n\n镜头 2 (6–12秒)：\n8K，电影感。\n\n一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。\n\n${NEGATIVE_CONSTRAINT}`;
-  const report = evaluatePrompt(prompt, { market: "overseas", duration: 12, expectsDialogue: true });
+test("rejects language, parameter, and observability violations", () => {
+  const prompt = `@婚礼厅（夜） 为场景参考 @Lily 为角色参考 @Alexander 为角色参考。根据以下序列分镜生成视频，全程无BGM、无字幕、无画面水印。
+
+分镜1：竖屏中近景固定镜头。Lily：她很伤心。宾客站在后面。音效：环境底噪。台词："我知道了"。时长：6s
+
+分镜3：近景固定镜头。Alexander：8K，电影感。宴会灯光照在他身上。音效：无。台词："Stay."。时长：6s
+
+风格：现代情感短剧，冷白宴会厅质感，表演克制。
+${NEGATIVE_CONSTRAINT_LINE}
+场景理解：这是一场重要冲突。
+设计说明：按冲突高点组织。`;
+  const report = evaluatePrompt(prompt, { market: "overseas", expectsDialogue: true });
   assert.equal(report.pass, false);
   assert.deepEqual(report.failedChecks.sort(), [
     "dialogueLanguage",
     "noInvalidParameters",
     "observableCoverage",
-    "timestampsContinuous"
+    "shotsSequential"
   ]);
 });
 
-test("rejects the legacy negative constraint template", () => {
-  const prompt = validPrompt('"I know what you did."').replace(NEGATIVE_CONSTRAINT, LEGACY_NEGATIVE_CONSTRAINT);
-  const report = evaluatePrompt(prompt, {
-    market: "overseas",
-    duration: 12,
-    expectsDialogue: true
-  });
+test("requires style constraint understanding and design note sections", () => {
+  const prompt = validPrompt('"I know what you did."', "overseas")
+    .replace(/\n风格：[\s\S]*$/m, "");
+  const report = evaluatePrompt(prompt, { market: "overseas", expectsDialogue: true });
   assert.equal(report.pass, false);
-  assert.ok(report.failedChecks.includes("fixedEndingOrder"));
+  assert.ok(report.failedChecks.includes("hasStyle"));
+  assert.ok(report.failedChecks.includes("hasConstraint"));
+  assert.ok(report.failedChecks.includes("hasSceneUnderstanding"));
+  assert.ok(report.failedChecks.includes("hasDesignNote"));
 });
 
 test("requires visible physical feedback when weather or light causes are explicit", () => {
-  const missingFeedback = `镜头 1 (0–12秒)：
-女主在雨中向前走，肩膀微微内收，目光越过握伞的左手看向路口。
+  const missingFeedback = `@路口（雨夜） 为场景参考 @女主 为角色参考。根据以下序列分镜生成视频，全程无BGM、无字幕、无画面水印。
 
-一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。
+分镜1：竖屏中景固定镜头。女主：整体站立微缩肩，头部朝路口偏转，目光越过握伞的左手看向前方，右手握住伞柄。她站在雨中路口。音效：雨声。台词：无。时长：12s
 
-${NEGATIVE_CONSTRAINT}`;
+风格：都市情感短剧，冷湿质感，克制表演。
+约束：不增加其他人物；动作自然、口型准确、无穿模、无闪烁。
+场景理解：她在等待。
+设计说明：用停顿承接等待。`;
   const invalidReport = evaluatePrompt(missingFeedback, {
     market: "domestic",
-    duration: 12,
     expectsDialogue: false
   });
   assert.equal(invalidReport.checks.physicalCausality, false);
-  assert.ok(invalidReport.failedChecks.includes("physicalCausality"));
 
-  const withFeedback = `镜头 1 (0–12秒)：
-女主肩膀微微内收，目光越过握伞的左手看向路口。雨点击中伞面，细小水花沿伞沿溅起；风把湿发贴向她的脸颊，她用拇指擦去下颌的水珠。
+  const withFeedback = `@路口（雨夜） 为场景参考 @女主 为角色参考。根据以下序列分镜生成视频，全程无BGM、无字幕、无画面水印。
 
-一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。
+分镜1：竖屏中景固定镜头。女主：整体站立微缩肩，头部朝路口偏转，目光越过握伞的左手看向前方，右手握住伞柄，拇指擦去下颌的水珠。雨点击中伞面，细小水花沿伞沿溅起，风把湿发贴向她的脸颊。音效：雨声、伞面雨点击打声。台词：无。时长：12s
 
-${NEGATIVE_CONSTRAINT}`;
+风格：都市情感短剧，冷湿质感，克制表演。
+约束：不增加其他人物；动作自然、口型准确、无穿模、无闪烁。
+场景理解：她在等待，心里有事。
+设计说明：用雨夜反馈外化压抑。`;
   const validReport = evaluatePrompt(withFeedback, {
     market: "domestic",
-    duration: 12,
     expectsDialogue: false
   });
   assert.equal(validReport.checks.physicalCausality, true);
   assert.equal(validReport.pass, true);
-
-  const breathingAirflow = evaluatePrompt(silentPrompt(
-    "她双肩缓慢下沉，目光盯着杯沿，右手握住左手手腕；嘴唇张开但没有声音，只有呼气和吸气的气流声。"
-  ), { market: "domestic", duration: 12, expectsDialogue: false });
-  assert.equal(breathingAirflow.checks.physicalCausality, true);
-  assert.equal(breathingAirflow.checks.observableCoverage, true);
-
-  const practicalLight = evaluatePrompt(silentPrompt(
-    "她侧身坐在桌前，目光停在戒指上，左手食指压住纸张。台灯光线落在戒指表面，形成一道窄高光。"
-  ), { market: "domestic", duration: 12, expectsDialogue: false });
-  assert.equal(practicalLight.checks.physicalCausality, true);
-  assert.equal(practicalLight.pass, true);
 });
 
 test("skill and runtime load the structured physical direction reference", async () => {
@@ -101,22 +98,14 @@ test("skill and runtime load the structured physical direction reference", async
   ]);
   assert.match(skill, /structured-physical-direction\.md/);
   assert.match(server, /structured-physical-direction\.md/);
-  assert.match(server, /最后一个镜头的结束秒必须等于/);
+  assert.match(server, /场景理解：/);
   assert.match(reference, /主体.*动作.*环境.*镜头.*氛围/);
   assert.match(reference, /整体姿态.*头部.*眼神.*手部.*细节/);
 });
 
-test("accepts reset timestamps when a long scene documents a second strip", () => {
-  const prompt = `${validPrompt('"Stay."')}\n\n镜头 1 (0–4秒)：\n眼睑收紧，呼吸变浅，手指按住门把。\n对话："I can't." 语速放慢，音量很低。\n\n镜头 2 (4–12秒)：\n目光转向桌上的钥匙，胸口起伏一次，肩膀缓慢下沉。\n\n拆条对应：条1对应争辩；条2对应归还钥匙和告别。`;
-  const report = evaluatePrompt(prompt, { market: "overseas", duration: 12, expectsDialogue: true, expectsSplit: true });
-  assert.equal(report.pass, true);
-  assert.equal(report.metrics.shots, 4);
-});
-
 test("accepts domestic dialogue and rejects missing profile fields", () => {
-  const promptReport = evaluatePrompt(validPrompt('"我一直都知道。"'), {
+  const promptReport = evaluatePrompt(validPrompt('"我一直都知道。"', "domestic"), {
     market: "domestic",
-    duration: 12,
     expectsDialogue: true
   });
   assert.equal(promptReport.pass, true);
@@ -127,31 +116,17 @@ test("accepts domestic dialogue and rejects missing profile fields", () => {
 });
 
 test("counts gaze plus body movement as two observable signal categories", () => {
-  const prompt = `镜头 1 (0–4秒)：
-她的视线低垂到握住门把的左手，指节缓慢松开。
+  const prompt = `@室内（夜） 为场景参考 @她 为角色参考。根据以下序列分镜生成视频，全程无BGM、无字幕、无画面水印。
 
-镜头 2 (4–12秒)：
-目光固定在杯中的水纹上，肩膀下沉，拇指擦过杯壁。
+分镜1：竖屏近景固定镜头。她：整体站立不动，头部略低，视线低垂到握住门把的左手，指节缓慢松开，嘴唇压住呼吸。门边墙面保持暗色静止。音效：门把轻响。台词：无。时长：4s
 
-一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。
+分镜2：竖屏近景固定镜头。她：整体肩膀下沉，头部停住不转，目光固定在杯中的水纹上，拇指擦过杯壁，胸口起伏一次。桌前只有台灯与杯面反光。音效：轻微呼气、杯壁摩擦声。台词：无。时长：8s
 
-${NEGATIVE_CONSTRAINT}`;
-  const report = evaluatePrompt(prompt, { market: "overseas", duration: 12, expectsDialogue: false });
-  assert.equal(report.pass, true);
-  assert.equal(report.metrics.observableCoverage, 1);
-});
-
-test("counts clothing and paper as observable prop interaction", () => {
-  const prompt = `镜头 1 (0–4秒)：
-目光从叠好的衣物移向柜门，掌心压平衬衫的折痕。
-
-镜头 2 (4–12秒)：
-视线扫过纸条上的字迹，下眼睑收紧；纸张边缘在展开时轻微抖动。
-
-一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。
-
-${NEGATIVE_CONSTRAINT}`;
-  const report = evaluatePrompt(prompt, { market: "domestic", duration: 12, expectsDialogue: false });
+风格：现代情感短剧，写实近距质感，表演克制。
+约束：不增加其他人物；动作自然、口型准确、无穿模、无闪烁。
+场景理解：她在压回将要出口的话。
+设计说明：用视线与手部泄漏冲突。`;
+  const report = evaluatePrompt(prompt, { market: "overseas", expectsDialogue: false });
   assert.equal(report.pass, true);
   assert.equal(report.metrics.observableCoverage, 1);
 });
@@ -171,24 +146,30 @@ test("eval dataset satisfies the fixed P1 distribution", async () => {
   });
 });
 
-function validPrompt(dialogue) {
-  return `镜头 1 (0–4秒)：
-眼睑轻微收紧，目光停在对方手上；吸气变浅，右手拇指摩擦食指。
-对话：${dialogue} 语速放慢，音量很低，开口前停顿0.5秒。
+function validPrompt(dialogue, market = "overseas") {
+  const spoken = market === "domestic" ? dialogue : dialogue;
+  return `@婚礼贵宾厅（室内夜景） 为场景参考 @Lily 为角色参考 @Alexander 为角色参考。根据以下序列分镜生成视频，全程无BGM、无字幕、无画面水印。
 
-镜头 2 (4–12秒)：
-嘴唇压平后松开，呼吸从胸口缓慢落下；肩膀下沉，手掌离开桌沿。
+分镜1：竖屏中近景固定镜头，35mm，浅景深。Lily：整体站姿勉强挺直，重心锁在脚跟；头部几乎不动；目光停在Marcus手里的话筒上，眼角没有跟上嘴角的礼貌弧度；左手抓住右手手腕，指节一点点发白；慢眨眼一次，把吸气压回胸口。宴会厅宾客虚化站在她身后，顶灯冷白。音效：宾客窃笑、布料摩擦、短促吸气。台词：无。时长：4s
 
-一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。
+分镜2：竖屏中近景固定镜头，50mm，浅景深。Alexander：整体从人群阴影中稳定前出，肩线平稳；头部先偏向Marcus再转向全场；目光压住全场，表情中性，喉结滚动一次后开口；右手接过话筒，拇指沿话筒柄轻微收紧；说完后嘴唇自然闭合，不追加动作。宴会厅灯光落在话筒金属边缘，形成一线窄高光。音效：脚步止住、话筒轻碰声、宴会厅空调底噪。台词：${spoken}。时长：8s
 
-${NEGATIVE_CONSTRAINT}`;
+风格：豪门羞辱反击题材，现代宴会厅写实质感，表演克制但压迫感明确。
+${NEGATIVE_CONSTRAINT_LINE}
+场景理解：这是公开羞辱后的反击起点，前面是Marcus持续压低Lily，后面会把权力关系迅速翻转。Lily此刻仍在强撑体面，Alexander与她的关系温度已带保护意味但未完全摊开，Marcus仍以为自己掌控局面。
+设计说明：用先压后出手的两段节拍，把体面裂缝与权力翻转落到可观测动作上。`;
 }
 
-function silentPrompt(body) {
-  return `镜头 1 (0–12秒)：
-${body}
+test("server prompt contract mentions scene understanding and new format", async () => {
+  const server = await readFile(path.join(__dirname, "..", "server.js"), "utf8");
+  assert.match(server, /场景理解：/);
+  assert.match(server, /分镜1：/);
+  assert.match(server, /时长：Xs/);
+});
 
-一致性锁定：脸部、发型、服装保持与@图1一致；口型细腻自然；动作幅度克制；强调呼吸感和眼神微动。
-
-${NEGATIVE_CONSTRAINT}`;
-}
+test("profile prompt explicitly forbids JSON and nested braces", async () => {
+  const server = await readFile(path.join(__dirname, "..", "server.js"), "utf8");
+  assert.match(server, /严禁输出 JSON/);
+  assert.match(server, /花括号/);
+  assert.match(server, /关系动力学必须写成纯中文可读文本/);
+});

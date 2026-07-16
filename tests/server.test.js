@@ -11,26 +11,42 @@ process.env.ENABLE_AUTH = "false";
 
 const requestListener = require("../server");
 
-test("builds exact continuous shot schedules for supported durations", () => {
-  assert.deepEqual(requestListener.buildShotSchedule(4), [
-    "镜头 1 (0–2秒)：",
-    "镜头 2 (2–4秒)："
-  ]);
-  assert.deepEqual(requestListener.buildShotSchedule(9), [
-    "镜头 1 (0–3秒)：",
-    "镜头 2 (3–6秒)：",
-    "镜头 3 (6–9秒)："
-  ]);
-  assert.deepEqual(requestListener.buildShotSchedule(12), [
-    "镜头 1 (0–4秒)：",
-    "镜头 2 (4–8秒)：",
-    "镜头 3 (8–12秒)："
-  ]);
-  assert.deepEqual(requestListener.buildShotSchedule(15), [
-    "镜头 1 (0–5秒)：",
-    "镜头 2 (5–10秒)：",
-    "镜头 3 (10–15秒)："
-  ]);
+test("sanitizeProfileOutput cleans json-like profile text into plain Chinese blocks", () => {
+  const raw = `
+\`\`\`json
+[
+  {
+    "人物ID": "Lily",
+    "人物小传": "受过公开羞辱，习惯礼貌微笑。",
+    "性格底色": "隐忍、敏感",
+    "关系动力学": {"对Alexander":"依赖中带防备","对Marcus":"受伤后强撑体面"},
+    "贯穿情感弧线": ["先强撑","后松动"],
+    "专属表演习惯Tell": ["左手抓右手手腕","慢眨眼"],
+    "核心情绪微表情库": {"压抑悲伤":"嘴唇发白，喉结滚动"}
+  }
+]
+\`\`\`
+  `;
+  const cleaned = requestListener.sanitizeProfileOutput(raw);
+  assert.match(cleaned, /人物ID：Lily/);
+  assert.match(cleaned, /关系动力学：/);
+  assert.doesNotMatch(cleaned, /```/);
+  assert.doesNotMatch(cleaned, /[\{\}\[\]]/);
+});
+
+test("project id validator blocks traversal and unsafe ids", () => {
+  assert.equal(requestListener.validateProjectId("abc-123"), "abc-123");
+  assert.throws(() => requestListener.validateProjectId("../x"));
+  assert.throws(() => requestListener.validateProjectId("A"));
+  assert.throws(() => requestListener.validateProjectId("a/b"));
+});
+
+test("extractScriptWindow returns bounded context around selection", () => {
+  const script = "a".repeat(2000) + "SELECTED" + "b".repeat(2000);
+  const result = requestListener.extractScriptWindow(script, { start: 2000, end: 2008 }, 1500);
+  assert.equal(result.selected, "SELECTED");
+  assert.equal(result.before.length, 1500);
+  assert.equal(result.after.length, 1500);
 });
 
 let server;
@@ -132,6 +148,61 @@ test("returns a clear model configuration error when no API key exists", async (
   assert.equal(response.status, 500);
   const payload = await response.json();
   assert.match(payload.error, /AI is not configured/);
+});
+
+test("projects api lists empty data set and supports create/get/delete with writable fallback fields", async () => {
+  const listResponse = await fetch(`${baseUrl}/api/projects`);
+  assert.equal(listResponse.status, 200);
+  const listPayload = await listResponse.json();
+  assert.equal(listPayload.ok, true);
+  assert.equal(Array.isArray(listPayload.projects), true);
+  assert.equal(typeof listPayload.writable, "boolean");
+
+  const createResponse = await fetch(`${baseUrl}/api/projects`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ projectName: "Test Project", market: "overseas" })
+  });
+  assert.equal(createResponse.status, 200);
+  const createPayload = await createResponse.json();
+  assert.equal(createPayload.ok, true);
+  assert.equal(typeof createPayload.project.id, "string");
+  assert.match(createPayload.project.id, /^[a-z0-9-]+$/);
+
+  if (createPayload.writable) {
+    const getResponse = await fetch(`${baseUrl}/api/projects/${createPayload.project.id}`);
+    assert.equal(getResponse.status, 200);
+    const getPayload = await getResponse.json();
+    assert.equal(getPayload.ok, true);
+    assert.equal(getPayload.project.projectName, "Test Project");
+
+    const putResponse = await fetch(`${baseUrl}/api/projects/${createPayload.project.id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        projectName: "Renamed",
+        market: "domestic",
+        script: "场景：门口沉默。",
+        profile: "人物ID：A",
+        prompt: "",
+        state: { currentStep: "profile" }
+      })
+    });
+    assert.equal(putResponse.status, 200);
+    const putPayload = await putResponse.json();
+    assert.equal(putPayload.ok, true);
+    assert.equal(putPayload.project.projectName, "Renamed");
+
+    const deleteResponse = await fetch(`${baseUrl}/api/projects/${createPayload.project.id}`, { method: "DELETE" });
+    assert.equal(deleteResponse.status, 200);
+    const deletePayload = await deleteResponse.json();
+    assert.equal(deletePayload.ok, true);
+  }
+});
+
+test("projects api rejects invalid ids", async () => {
+  const response = await fetch(`${baseUrl}/api/projects/../bad`);
+  assert.notEqual(response.status, 200);
 });
 
 test("extracts and normalizes Markdown uploads", async () => {
